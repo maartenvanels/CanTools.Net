@@ -1,5 +1,7 @@
 # CanTools.Net
 
+[![CI](https://github.com/maartenvanels/CanTools.Net/actions/workflows/ci.yml/badge.svg)](https://github.com/maartenvanels/CanTools.Net/actions/workflows/ci.yml)
+
 A C#/.NET port of the excellent [cantools](https://github.com/cantools/cantools)
 Python library by Erik Moqvist and contributors.
 
