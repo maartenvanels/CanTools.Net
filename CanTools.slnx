@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/CanTools/CanTools.csproj" />
+    <Project Path="src/CanTools.Cli/CanTools.Cli.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/CanTools.Tests/CanTools.Tests.csproj" />

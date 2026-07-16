@@ -37,13 +37,28 @@ var decoded = db.DecodeMessage("ExampleMessage", data);
 More examples — loading databases, decoding log files, J1939, CANopen — in
 [docs/examples.md](docs/examples.md).
 
+## Command line
+
+The `CanTools.Net.Cli` package ports the cantools command line (the `decode`,
+`dump`, `list` and `convert` subcommands):
+
+```
+dotnet tool install --global CanTools.Net.Cli
+
+candump can0 | cantools-net decode vehicle.dbc
+cantools-net dump vehicle.dbc
+cantools-net list vehicle.dbc
+cantools-net convert vehicle.kcd vehicle.dbc
+```
+
 This is an independent port and is not affiliated with the cantools maintainers.
 CANopen is a registered trademark of CAN in Automation (CiA); this project is not
 affiliated with or endorsed by CiA.
 Behavior is verified against the upstream test suite and cross-checked against
 the Python implementation; see `PORTING.md` for exactly what has been ported and
 which deviations exist, and `PLAN.md` for the roadmap. Not yet ported: ARXML and
-CDD parsing, KCD/SYM writing, container messages, and the CLI tools.
+CDD parsing, KCD/SYM writing, container messages, and the `monitor`, `plot` and
+`generate_c_source` subcommands.
 
 Work in progress — the API is not stable yet.
 

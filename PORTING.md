@@ -12,7 +12,8 @@ Update this file at the end of every porting session. See `PLAN.md` for the phas
 | 4. DBC writer | `database/can/formats/dbc.py` (dump half) | `src/CanTools/Formats/Dbc/DbcWriter.cs` | **done** (July 2026) | see notes below |
 | 5. SYM / KCD / J1939 | `formats/sym.py` (load), `formats/kcd.py` (load), `j1939.py` | `src/CanTools/Formats/Sym/`, `Formats/Kcd/`, `J1939.cs` | **done** (July 2026) | readers only; writers are follow-ups |
 | 6. Log reading | `logreader.py` | `src/CanTools/Logs/` | **done** (July 2026) | see notes below |
-| — | ARXML, CDD, tester, monitor, plot, c_source, CLI | — | out of scope | see PLAN.md |
+| 7. CLI | `subparsers/decode.py`, `convert.py`, `list.py`, `dump/`, `__utils__.py` | `src/CanTools.Cli/` (dotnet tool `cantools-net`, package `CanTools.Net.Cli`) | **done** (July 2026) | see notes below |
+| — | ARXML, CDD, tester, monitor, plot, c_source | — | out of scope | see PLAN.md |
 
 ## Test coverage map
 
@@ -263,7 +264,56 @@ upstream `tz` parameter is not ported — the timezone-sensitive assertions are
 asserted against the same local-time conversion, making the tests timezone
 independent.
 
-## API polish (July 2026, post-port)
+### Phase 7 — CLI (July 2026)
+
+Ported source: the `decode`, `convert`, `list` and `dump` subcommands →
+`src/CanTools.Cli/`, a separate console project packaged as the dotnet tool
+`cantools-net` (`CanTools.Net.Cli`, packed and published by the same CI workflow).
+Argument parsing is hand-rolled per subcommand (like the hand-written DBC parser,
+no dependency); `CliProgram.Run(args, stdin, stdout, stderr)` is the testable entry
+point and `Program` binds it to the console with LF-only newlines. `__utils__.py`
+→ `MessageFormatter`, `dump/formatting.py` → `SignalTreeFormatter` +
+`LayoutFormatter`, and `PythonFormat` reproduces Python's float `repr` because
+every golden output was produced by the Python CLI.
+
+Library change for `decode -m`: `DatabaseLoader`/`DbcReader`/`KcdReader`/`SymReader`
+gained a `frameIdMask` parameter, mirroring upstream `load_file(frame_id_mask=...)`
+(the `Database` constructor already took it).
+
+Ported tests:
+- `test_command_line.py::test_decode`, `test_decode_timestamp_absolute`,
+  `test_decode_timestamp_zero`, `test_decode_can_fd`, `test_decode_log_format`,
+  `test_single_line_decode`, `test_single_line_decode_log_format`,
+  `test_decode_single_line_muxed_data` → `DecodeCommandTests`.
+  `test_decode_muxed_data` was skipped: same 36 frames as the single-line variant
+  and the multi-line rendering path is covered by the other decode tests.
+- `test_command_line.py::test_convert`, `test_convert_bad_outfile` →
+  `ConvertCommandTests`. Upstream converts DBC → KCD → DBC; the KCD writer is not
+  ported, so the C# test covers the KCD → DBC leg plus a DBC round trip.
+- `test_list.py::test_dbc`, `test_kcd` → `ListCommandTests`. The ARXML cases
+  (`test_arxml3`, `test_arxml4`) are skipped: no ARXML reader.
+- `test_command_line.py::test_dump`, `test_dump_with_comments`,
+  `test_dump_with_comments_mux`, `test_dump_no_sender`,
+  `test_dump_signal_choices`, `test_dump_j1939` → `DumpCommandTests`
+  (the faked 80-column screen is `DumpCommand.ConsoleWidthOverride`).
+
+Not ported (out of scope with the features they surface): container message
+formatting and the decode `-t/--no-decode-containers` flag (AUTOSAR containers),
+the diagnostics-database branch of `dump` (CDD), AUTOSAR/E2E/SecOC property
+printing in `list` (ARXML), and the `generate_c_source`, `monitor` and `plot`
+subcommands.
+
+Deviations (deliberate):
+- `convert` only writes `.dbc` until the KCD/SYM writers exist; other extensions
+  get upstream's exact error text ("Unsupported output database format 'kcd'.").
+- `list` prints minimum/maximum/offset/scale via a heuristic (integral doubles
+  as integers): the model stores these as `double`, so upstream's distinction
+  between Python `20` ("20") and `20.0` ("20.0") is not representable. All
+  DBC/KCD golden values format identically.
+- `dump -m` with an unknown message prints `error: Unknown message X` without
+  Python's `KeyError` quoting.
+- Errors print as `error: <message>` on stderr with exit code 1 (upstream
+  `sys.exit`); an unknown subcommand prints usage and exits 2 (argparse).
 
 A style pass brought the public surface in line with .NET conventions; behavior
 is unchanged (all ported tests green, writer output re-verified against Python

@@ -103,6 +103,11 @@ Port `logreader.py` (candump text formats) + `test_logreader.py`. This is what m
 the library useful for "log and interpret a bus" together with any vendor interface
 (PCAN, Kvaser, SocketCANSharp).
 
+**Phase 7 — CLI** ✔ (July 2026, added after the original plan)
+The `decode`, `dump`, `list` and `convert` subcommands as a separate
+`src/CanTools.Cli/` project, packaged as the dotnet tool `cantools-net`
+(`CanTools.Net.Cli`). See PORTING.md for scope cuts and deviations.
+
 **Later / explicitly out of scope for now**
 ARXML (~2000 loc, plan as its own project when needed), CDD/diagnostics, tester,
 monitor TUI, plotting, C code generation, a python-can-style hardware abstraction.

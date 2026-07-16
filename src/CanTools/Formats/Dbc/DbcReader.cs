@@ -14,20 +14,22 @@ public static class DbcReader
         Encoding? encoding = null,
         bool strict = true,
         bool pruneChoices = false,
-        SignalSort? sortSignals = null)
+        SignalSort? sortSignals = null,
+        uint frameIdMask = 0xffffffff)
     {
         var text = File.ReadAllText(path, encoding ?? DefaultEncoding);
 
-        return LoadString(text, strict, pruneChoices, sortSignals);
+        return LoadString(text, strict, pruneChoices, sortSignals, frameIdMask);
     }
 
     public static Database LoadString(
         string text,
         bool strict = true,
         bool pruneChoices = false,
-        SignalSort? sortSignals = null)
+        SignalSort? sortSignals = null,
+        uint frameIdMask = 0xffffffff)
     {
-        var database = new Database(strict: strict);
+        var database = new Database(strict: strict, frameIdMask: frameIdMask);
         database.AddDbcString(text, sortSignals);
 
         if (pruneChoices)

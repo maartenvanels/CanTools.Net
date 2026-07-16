@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\CanTools\CanTools.csproj" />
+    <ProjectReference Include="..\..\src\CanTools.Cli\CanTools.Cli.csproj" />
   </ItemGroup>
 
 </Project>

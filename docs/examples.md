@@ -14,6 +14,7 @@ that makes sense, so its documentation is often a useful second reference.
 - [J1939 helpers](#j1939-helpers)
 - [CANopen object dictionaries (EDS/DCF)](#canopen-object-dictionaries-edsdcf)
 - [Decoding CANopen PDOs and logs](#decoding-canopen-pdos-and-logs)
+- [The command line tool](#the-command-line-tool)
 
 ## Loading a database
 
@@ -322,3 +323,60 @@ foreach (var evt in interpreter.Interpret(new LogParser(reader).ReadEntries()))
 
 See [CANOPEN.md](../CANOPEN.md) for the design notes and the exact upstream
 (python-canopen) semantics that are matched.
+
+## The command line tool
+
+The `CanTools.Net.Cli` package wraps the library as the `cantools-net` command,
+a port of the cantools CLI:
+
+```
+dotnet tool install --global CanTools.Net.Cli
+```
+
+`decode` reads candump or PCAN log lines from stdin and appends the decoded
+signals to every known frame — pipe a live bus or an existing capture into it:
+
+```
+$ candump can0 | cantools-net decode vehicle.dbc
+  can0  1F0   [8]  C0 06 E0 00 00 00 00 00 ::
+ExampleMessage(
+    Enable: Enabled,
+    AverageRadius: 3.2 m,
+    Temperature: 250.55 degK
+)
+```
+
+Use `--single-line` for one frame per line (easier to grep), `-c` to keep raw
+values instead of choice labels, and `-m <mask>` to match frame ids under a mask
+(e.g. J1939 captures where the source address varies).
+
+`list` prints message names, or full details with `--all` or a message name;
+`-b` and `-c` list buses and nodes instead:
+
+```
+$ cantools-net list vehicle.dbc
+ExampleMessage
+$ cantools-net list vehicle.dbc ExampleMessage
+ExampleMessage:
+  Comment[None]: Example message used as template in MotoHawk models.
+  ...
+```
+
+`dump` renders every message with its bit layout, signal tree and choices
+(`-m <name>` for a single message, `--with-comments` to include signal
+comments):
+
+```
+$ cantools-net dump vehicle.dbc
+```
+
+`convert` reads any supported format and writes a DBC (KCD/SYM output follows
+once those writers are ported):
+
+```
+$ cantools-net convert vehicle.kcd vehicle.dbc
+```
+
+All subcommands accept `--prune` to shorten named choice values and
+`--no-strict` to skip the database consistency checks; `decode`, `dump` and
+`convert` also take `-e <encoding>` for non-default file encodings.

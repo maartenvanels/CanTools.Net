@@ -18,16 +18,22 @@ public static partial class SymReader
         string path,
         Encoding? encoding = null,
         bool strict = true,
-        SignalSort? sortSignals = null)
+        SignalSort? sortSignals = null,
+        uint frameIdMask = 0xffffffff)
     {
         var text = File.ReadAllText(path, encoding ?? DefaultEncoding);
 
-        return LoadString(text, strict, sortSignals);
+        return LoadString(text, strict, sortSignals, frameIdMask);
     }
 
-    public static Database LoadString(string text, bool strict = true, SignalSort? sortSignals = null)
+    public static Database LoadString(
+        string text,
+        bool strict = true,
+        SignalSort? sortSignals = null,
+        uint frameIdMask = 0xffffffff)
     {
-        var database = new Database(strict: strict, sortSignals: sortSignals);
+        var database = new Database(strict: strict, sortSignals: sortSignals,
+                                    frameIdMask: frameIdMask);
         database.AddSymString(text, sortSignals);
 
         return database;

@@ -19,7 +19,8 @@ public static class DatabaseLoader
         Encoding? encoding = null,
         bool strict = true,
         bool pruneChoices = false,
-        SignalSort? sortSignals = null)
+        SignalSort? sortSignals = null,
+        uint frameIdMask = 0xffffffff)
     {
         format ??= Path.GetExtension(path).ToLowerInvariant() switch
         {
@@ -33,7 +34,8 @@ public static class DatabaseLoader
             ? FormatEncodings.Cp1252
             : Encoding.UTF8;
 
-        return LoadString(File.ReadAllText(path, encoding), format, strict, pruneChoices, sortSignals);
+        return LoadString(File.ReadAllText(path, encoding), format, strict, pruneChoices, sortSignals,
+                          frameIdMask);
     }
 
     public static Database LoadString(
@@ -41,7 +43,8 @@ public static class DatabaseLoader
         DatabaseFormat? format = null,
         bool strict = true,
         bool pruneChoices = false,
-        SignalSort? sortSignals = null)
+        SignalSort? sortSignals = null,
+        uint frameIdMask = 0xffffffff)
     {
         Exception? dbcError = null;
         Exception? kcdError = null;
@@ -51,7 +54,8 @@ public static class DatabaseLoader
         {
             try
             {
-                return Finish(DbcReader.LoadString(text, strict, sortSignals: sortSignals), pruneChoices);
+                return Finish(DbcReader.LoadString(text, strict, sortSignals: sortSignals,
+                                                   frameIdMask: frameIdMask), pruneChoices);
             }
             catch (Exception exception)
             {
@@ -63,7 +67,8 @@ public static class DatabaseLoader
         {
             try
             {
-                return Finish(KcdReader.LoadString(text, strict, sortSignals), pruneChoices);
+                return Finish(KcdReader.LoadString(text, strict, sortSignals, frameIdMask),
+                              pruneChoices);
             }
             catch (Exception exception)
             {
@@ -75,7 +80,8 @@ public static class DatabaseLoader
         {
             try
             {
-                return Finish(SymReader.LoadString(text, strict, sortSignals), pruneChoices);
+                return Finish(SymReader.LoadString(text, strict, sortSignals, frameIdMask),
+                              pruneChoices);
             }
             catch (Exception exception)
             {

@@ -15,14 +15,21 @@ public static class KcdReader
         string path,
         Encoding? encoding = null,
         bool strict = true,
-        SignalSort? sortSignals = null)
+        SignalSort? sortSignals = null,
+        uint frameIdMask = 0xffffffff)
     {
-        return LoadString(File.ReadAllText(path, encoding ?? Encoding.UTF8), strict, sortSignals);
+        return LoadString(File.ReadAllText(path, encoding ?? Encoding.UTF8), strict, sortSignals,
+                          frameIdMask);
     }
 
-    public static Database LoadString(string text, bool strict = true, SignalSort? sortSignals = null)
+    public static Database LoadString(
+        string text,
+        bool strict = true,
+        SignalSort? sortSignals = null,
+        uint frameIdMask = 0xffffffff)
     {
-        var database = new Database(strict: strict, sortSignals: sortSignals);
+        var database = new Database(strict: strict, sortSignals: sortSignals,
+                                    frameIdMask: frameIdMask);
         database.AddKcdString(text, sortSignals);
 
         return database;
