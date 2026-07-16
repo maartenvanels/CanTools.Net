@@ -45,6 +45,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: pack
     environment: nuget
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -53,9 +57,16 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
+      # Trusted Publishing: exchange the GitHub OIDC token for a short-lived
+      # (1 hour, single-use) nuget.org API key just before the push.
+      - name: NuGet login
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
       - name: Push to NuGet.org
         run: >
           dotnet nuget push "artifacts/*.nupkg"
-          --api-key "${{ secrets.NUGET_API_KEY }}"
+          --api-key "${{ steps.login.outputs.NUGET_API_KEY }}"
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
