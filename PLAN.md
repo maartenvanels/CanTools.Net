@@ -56,7 +56,10 @@ Design rules (this is a port of behavior, not of Python code):
 - DBC files are typically cp1252, not UTF-8. Encoding is a constructor option like
   upstream.
 - Target `net8.0` initially; consider `netstandard2.0` multi-targeting before a NuGet
-  release, not before.
+  release, not before. Decision (July 2026, at packaging time): stay `net8.0`-only.
+  The code leans on `GeneratedRegex`, `Span<byte>` and modern C# throughout, so
+  `netstandard2.0` would mean polyfills and a second code path for little gain;
+  revisit only if a concrete consumer needs .NET Framework.
 
 ## Phases
 
