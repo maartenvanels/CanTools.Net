@@ -226,8 +226,19 @@ Bulk diff-test (2026-07-15): model dump of 4 KCD + 8 SYM files (plus the 22 DBC
 files) compared field-by-field against Python cantools — zero differences.
 
 Not ported (follow-ups): the KCD and SYM writers (`as_kcd_string`,
-`as_sym_string`) and their round-trip tests; multi-format auto-detection
-(`load_file` dispatch with `UnsupportedDatabaseFormatError`).
+`as_sym_string`) and their round-trip tests.
+
+Multi-format auto-detection was ported later (July 2026):
+`Formats/DatabaseLoader.LoadFile/LoadString` with the extension table, the
+per-format default encodings (cp1252 for DBC/SYM, UTF-8 otherwise), probing in
+upstream's order for a transparent format, and
+`UnsupportedDatabaseFormatException` collecting the per-format errors with
+upstream's message shape (`DBC: "...", KCD: "...", SYM: "..."`). Deviations:
+only the three supported formats participate (no ARXML/CDD), and the
+invalid-format-name `ValueError` cannot occur because the format is an enum.
+Tests ported from `test_load_file_with_database_format` and `test_invalid_kcd`;
+the KCD-of-DBC case asserts our XML wording (`syntax error: line 1, column 0`)
+instead of expat's.
 
 ### Phase 6 — log reading
 
