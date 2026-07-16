@@ -1,6 +1,7 @@
 # CANopen support — design proposal
 
-Status: **E1 done** (July 2026); E2–E4 not started.
+Status: **E1–E4 done** (July 2026). Remaining: the "later" items (DCF writing,
+CiA 311 XDD/XDC, CPJ).
 
 ## Progress
 
@@ -18,6 +19,58 @@ Status: **E1 done** (July 2026); E2–E4 not started.
   only for the future writer); dotted string lookup ("A.B") is not implemented;
   values beyond 64 bits are rejected. Test data from python-canopen (MIT), see
   THIRD-PARTY-NOTICES.txt.
+- **E2 — CobId + PdoDatabase projection: done.** `CanOpen/CobId` (function code /
+  node id split, CiA 301 connection-set classification, compose) and
+  `CanOpen/PdoDatabase.Create(od)` → a plain `Database`: comm records
+  0x1400/0x1800 (ParameterValue beats DefaultValue, bit 31 disables — disabled
+  PDOs are omitted from the Database, bit 30/29 dropped), mapping records
+  0x1600/0x1A00 (`index<<16|sub<<8|bits`, size masked to 7 bits, zero and
+  unresolvable entries skipped without advancing the offset, dummies map as
+  ordinary variables, record/array members get dotted "Parent.Name" names),
+  contiguous little-endian offsets, identity conversions (EDS has no scaling).
+  Tests replicate python-canopen's test_pdo_map_bit_mapping byte-exactly through
+  the projection (fixture tests/files/eds/pdo_test.eds, hand-written) plus the
+  empty-PDO behavior of sample.eds; verified against python-canopen itself
+  running on the same fixture (offsets, names, enabled flags identical).
+  Deviation: message names use upstream's TxPDO{n}_node{id} formula, which is
+  only meaningful for connection-set COB-IDs.
+- **E3 — frame codecs: done.** Stateless parse/build per frame type in
+  `CanOpen/`: `NmtMessage` + `NmtCommand`/`NmtState` (with the command → target
+  state map), `Heartbeat` (node guarding toggle bit split off, boot-up = state
+  0), `EmergencyMessage` (CiA 301 error-class table and python-canopen's
+  "Code 0x2001, Current" formatting), `SyncMessage`, `TimeMessage` (1984 epoch,
+  ms-of-day + days, both directions), and the `SdoFrame` record family:
+  initiate upload/download requests/responses with the full e/s/n expedited
+  and announced-size handling, segment frames (toggle/length/last), `SdoAbort`
+  with the complete `SdoAbortCode` table, and classification-only
+  `SdoBlockFrame`. Golden vectors ported from python-canopen's test_nmt/
+  test_emcy/test_sync/test_time/test_sdo; the EMCY and abort description
+  tables additionally diff-tested string-for-string against python-canopen
+  (43 rows, zero differences). Deviations: builders throw (EncodeException/
+  ArgumentException) where upstream silently truncates (EMCY vendor data,
+  oversized SDO payloads); SYNC/TIME get parsers upstream lacks (produce-only
+  there); block transfer frames are classified but not decoded — mid-block
+  data frames carry no command specifier at all, so per-frame classification
+  is impossible and reassembly waits for the E4 interpreter. Toggle-bit
+  alternation checking is likewise E4 state.
+- **E4 — log-stream interpreter: done.** `CanOpen/CanOpenLogInterpreter` folds
+  `LogEntry` streams (any `LogParser` format) into a `CanOpenEvent` record
+  family: NMT commands, boot-ups, heartbeats (with per-node state tracking and
+  `IsStateChange`), emergencies, SYNC/TIME, PDOs decoded through a projected
+  `Database`, and completed SDO transfers. SDO reassembly covers expedited,
+  segmented and block transfers per node — block data frames are intercepted
+  by phase (they carry a sequence number, not a command specifier), buffered
+  per round and only committed on the receiver's ack, which makes seqno gaps
+  and retransmitted rounds come out right; the end frame's n field trims the
+  padding. Events fire on the server frame that completes the service (upload
+  data / download ack). SDO conversations in the tests are the golden ones
+  from python-canopen's test_sdo.py, including the block download/upload
+  transcripts and a retransmission scenario. Deviations: block CRCs are not
+  verified (a log records what happened either way), toggle-bit alternation
+  is not enforced, and malformed protocol frames are skipped like unparseable
+  log lines. There is no upstream oracle for the interpreter itself —
+  python-canopen has no log reader — so this is original surface, anchored to
+  upstream through the frame-level golden conversations.
 
 This would be the repo's first deliberate step *beyond* upstream cantools, which has
 no CANopen support. The J1939 helpers set the precedent for protocol helpers; the
