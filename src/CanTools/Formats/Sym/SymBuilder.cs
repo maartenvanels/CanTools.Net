@@ -269,7 +269,7 @@ internal sealed class SymBuilder
     // SYM stores big-endian start bits in sawtooth numbering; the model uses the
     // MSB position, like DBC.
     private static int ConvertStart(int start, ByteOrder byteOrder) =>
-        byteOrder == ByteOrder.BigEndian ? 8 * (start / 8) + (7 - start % 8) : start;
+        byteOrder == ByteOrder.BigEndian ? BitNumbering.SawtoothToNetwork(start) : start;
 
     private static long ParseMuxId(string text) =>
         text.EndsWith('h')

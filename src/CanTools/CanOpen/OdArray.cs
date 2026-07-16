@@ -5,50 +5,30 @@ namespace CanTools.CanOpen;
 /// access from the subindex-1 template, like python-canopen does: the same type and
 /// attributes with the name suffixed by the subindex in lowercase hex.
 /// </summary>
-public sealed class OdArray : OdEntry
+public sealed class OdArray : OdComposite
 {
-    private readonly SortedDictionary<int, OdVariable> _bySubindex = [];
-    private readonly Dictionary<string, OdVariable> _byName = [];
-
     public OdArray(int index, string name)
         : base(index, name)
     {
     }
 
-    /// <summary>The explicitly defined members in subindex order.</summary>
-    public IReadOnlyCollection<OdVariable> Members => _bySubindex.Values;
-
-    public OdVariable this[int subindex]
+    public override OdVariable this[int subindex]
     {
         get
         {
-            if (_bySubindex.TryGetValue(subindex, out var member))
+            if (TryGetMember(subindex, out var member))
             {
-                return member;
+                return member!;
             }
 
-            if (subindex is >= 1 and <= 255 && _bySubindex.TryGetValue(1, out var template))
+            if (subindex is >= 1 and <= 255 && TryGetMember(1, out var template))
             {
-                return Synthesize(template, subindex);
+                return Synthesize(template!, subindex);
             }
 
             throw new KeyNotFoundException(
                 $"Array 0x{Index:X4} has no member at subindex {subindex}.");
         }
-    }
-
-    public OdVariable this[string name] =>
-        _byName.TryGetValue(name, out var member)
-            ? member
-            : throw new KeyNotFoundException($"Array 0x{Index:X4} has no member named '{name}'.");
-
-    public bool TryGetMember(int subindex, out OdVariable? member) =>
-        _bySubindex.TryGetValue(subindex, out member);
-
-    internal void AddMember(OdVariable member)
-    {
-        _bySubindex[member.Subindex] = member;
-        _byName[member.Name] = member;
     }
 
     private OdVariable Synthesize(OdVariable template, int subindex) =>

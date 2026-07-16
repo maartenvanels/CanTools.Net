@@ -45,7 +45,7 @@ public static partial class DbcWriter
     {
         // Omitting sortSignals means "by start bit, reversed" — unless the database
         // itself was created with SignalSorts.None, which keeps declaration order.
-        sortSignals ??= database.SortSignalsOption == SignalSorts.None
+        sortSignals ??= SignalSorts.KeepsDeclarationOrder(database.SortSignalsOption)
             ? SignalSorts.None
             : SignalSorts.ByStartBitReversed;
         sortAttributeSignals ??= SignalSorts.ByStartBitReversed;

@@ -197,7 +197,7 @@ public sealed class Database
         System.Text.Encoding? encoding = null,
         SignalSort? sortSignals = null)
     {
-        var text = File.ReadAllText(path, encoding ?? Formats.Dbc.DbcReader.DefaultEncoding);
+        var text = File.ReadAllText(path, encoding ?? Formats.FormatEncodings.Cp1252);
 
         AddDbcString(text, sortSignals);
     }

@@ -63,7 +63,7 @@ public class NmtFrameTests
     [InlineData(0x7F, NmtState.PreOperational)]
     public void Heartbeats_report_the_node_state(byte raw, NmtState state)
     {
-        var heartbeat = Heartbeat.Parse([raw]);
+        var heartbeat = HeartbeatMessage.Parse([raw]);
 
         Assert.Equal(state, heartbeat.State);
         Assert.False(heartbeat.Toggle);
@@ -74,14 +74,14 @@ public class NmtFrameTests
     public void A_zero_state_is_a_boot_up()
     {
         // ported from test_nmt.py::test_nmt_master_wait_for_bootup
-        Assert.True(Heartbeat.Parse([0x00]).IsBootUp);
+        Assert.True(HeartbeatMessage.Parse([0x00]).IsBootUp);
     }
 
     [Fact]
     public void The_node_guarding_toggle_bit_is_split_off()
     {
         // ported from test_nmt.py::test_nmt_master_on_heartbeat_unknown_state (0xCB)
-        var heartbeat = Heartbeat.Parse([0xCB]);
+        var heartbeat = HeartbeatMessage.Parse([0xCB]);
 
         Assert.True(heartbeat.Toggle);
         Assert.Equal((NmtState)0x4B, heartbeat.State);
@@ -91,8 +91,8 @@ public class NmtFrameTests
     [Fact]
     public void Heartbeats_build_with_and_without_toggle()
     {
-        Assert.Equal(new byte[] { 0x05 }, new Heartbeat(NmtState.Operational).ToBytes());
-        Assert.Equal(new byte[] { 0x85 }, new Heartbeat(NmtState.Operational, Toggle: true).ToBytes());
+        Assert.Equal(new byte[] { 0x05 }, new HeartbeatMessage(NmtState.Operational).ToBytes());
+        Assert.Equal(new byte[] { 0x85 }, new HeartbeatMessage(NmtState.Operational, Toggle: true).ToBytes());
     }
 }
 

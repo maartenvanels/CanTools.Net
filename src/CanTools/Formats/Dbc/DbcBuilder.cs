@@ -501,7 +501,7 @@ internal sealed class DbcBuilder
             var message = new Message(
                 frameId,
                 name,
-                (int)ParseBaseZero(statement.Length),
+                (int)PythonInt.ParseInt64(statement.Length),
                 signals,
                 unusedBitPattern: 0xff,
                 comment: messageComment is null ? null : new Comments(messageComment),
@@ -705,24 +705,22 @@ internal sealed class DbcBuilder
     private void RekeyRelationSignalNames(
         Dictionary<long, IReadOnlyList<RelationAttribute>> attributesRel)
     {
-        foreach (var (frameId, entries) in attributesRel)
+        foreach (var frameId in attributesRel.Keys.ToList())
         {
-            foreach (var entry in entries)
-            {
-                if (entry.SignalName is null)
+            attributesRel[frameId] = attributesRel[frameId]
+                .Select(entry =>
                 {
-                    continue;
-                }
+                    var longName = entry.SignalName is null
+                        ? null
+                        : _frameAttributes.GetValueOrDefault(frameId)
+                            ?.Signal.GetValueOrDefault(entry.SignalName)
+                            ?.GetValueOrDefault("SystemSignalLongSymbol")?.Value.Label;
 
-                var longName = _frameAttributes.GetValueOrDefault(frameId)
-                    ?.Signal.GetValueOrDefault(entry.SignalName)
-                    ?.GetValueOrDefault("SystemSignalLongSymbol")?.Value.Label;
-
-                if (longName is not null)
-                {
-                    entry.SignalName = longName;
-                }
-            }
+                    return longName is null
+                        ? entry
+                        : new RelationAttribute(entry.NodeName, entry.Attribute, longName);
+                })
+                .ToList();
         }
     }
 
@@ -821,17 +819,6 @@ internal sealed class DbcBuilder
     }
 
     private static long ParseLong(string text) => long.Parse(text, CultureInfo.InvariantCulture);
-
-    // Like Python's int(s, 0): decimal unless prefixed 0x/0o/0b.
-    private static long ParseBaseZero(string text)
-    {
-        if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-        {
-            return long.Parse(text[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-        }
-
-        return long.Parse(text, CultureInfo.InvariantCulture);
-    }
 
     // Like upstream's num(): an int when possible, otherwise a float.
     private static SignalValue Num(string text)

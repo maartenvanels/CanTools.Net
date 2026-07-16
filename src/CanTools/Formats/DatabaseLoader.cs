@@ -30,7 +30,7 @@ public static class DatabaseLoader
         };
 
         encoding ??= format is DatabaseFormat.Dbc or DatabaseFormat.Sym
-            ? DbcReader.DefaultEncoding
+            ? FormatEncodings.Cp1252
             : Encoding.UTF8;
 
         return LoadString(File.ReadAllText(path, encoding), format, strict, pruneChoices, sortSignals);

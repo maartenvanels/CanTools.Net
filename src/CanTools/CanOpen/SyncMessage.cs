@@ -7,8 +7,7 @@ public readonly record struct SyncMessage(byte? Counter = null)
     {
         if (data.Length > 1)
         {
-            throw new DecodeException(
-                $"A SYNC frame has 0 or 1 data bytes, but got {data.Length}.");
+            throw CanOpenFrames.WrongLength("A SYNC", "0 or 1 data bytes", data.Length);
         }
 
         return new SyncMessage(data.Length == 1 ? data[0] : null);

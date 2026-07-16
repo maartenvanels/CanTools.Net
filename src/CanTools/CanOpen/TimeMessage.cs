@@ -31,7 +31,7 @@ public readonly record struct TimeMessage(int Days, uint MillisecondsOfDay)
     {
         if (data.Length < 6)
         {
-            throw new DecodeException($"A TIME frame has 6 data bytes, but got {data.Length}.");
+            throw CanOpenFrames.WrongLength("A TIME", "6 data bytes", data.Length);
         }
 
         return new TimeMessage(

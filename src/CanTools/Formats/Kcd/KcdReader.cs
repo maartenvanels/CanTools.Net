@@ -141,7 +141,7 @@ public static class KcdReader
         var comment = element.Element(Ns + "Notes")?.Value;
 
         return new Message(
-            frameId: (uint)ParseInteger((string)element.Attribute("id")!),
+            frameId: (uint)PythonInt.ParseInt64((string)element.Attribute("id")!),
             name: (string)element.Attribute("name")!,
             length: length,
             signals: signals,
@@ -233,7 +233,7 @@ public static class KcdReader
     // KCD offsets are sequential bit positions; DBC start bits count from the MSB
     // within each byte for big-endian signals.
     private static int StartBit(int offset, ByteOrder byteOrder) =>
-        byteOrder == ByteOrder.BigEndian ? 8 * (offset / 8) + (7 - offset % 8) : offset;
+        byteOrder == ByteOrder.BigEndian ? BitNumbering.SawtoothToNetwork(offset) : offset;
 
     private static int AutoLength(IReadOnlyList<Signal> signals)
     {
@@ -261,24 +261,4 @@ public static class KcdReader
         return (bestKey + best!.Length + 7) / 8;
     }
 
-    // Like Python's int(x, 0): base prefix aware.
-    private static long ParseInteger(string text)
-    {
-        if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-        {
-            return long.Parse(text[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-        }
-
-        if (text.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
-        {
-            return Convert.ToInt64(text[2..], 2);
-        }
-
-        if (text.StartsWith("0o", StringComparison.OrdinalIgnoreCase))
-        {
-            return Convert.ToInt64(text[2..], 8);
-        }
-
-        return long.Parse(text, CultureInfo.InvariantCulture);
-    }
 }

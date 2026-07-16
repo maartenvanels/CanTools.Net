@@ -285,3 +285,54 @@ cantools including relation attributes). Renames and changes:
   a padding mask unless `padding: true`.
 - One public type per file (J1939 records, TimestampFormat, SYM tokenizer/
   statements split out).
+
+## Design review cleanup (July 2026)
+
+A structural pass after a design review; behavior unchanged except where noted
+(all tests green throughout). Changes:
+
+- The internal `Conversion` subclasses moved into `Conversion.cs` (they are a
+  closed set only `Conversion.Create` constructs); the non-choices `ScaledToRaw`
+  guard became a base implementation; `NamedSignalConversion.TryGetChoice` and
+  `Conversion.RoundUnlessFloat` now serve `MessageCodec`, which previously
+  re-implemented both the no-scaling choice lookup and the banker's rounding.
+- `BitNumbering.SawtoothToNetwork` replaces six copies of the sawtooth↔network
+  bit formula (`SignalSorts`, `Message`, `KcdReader`, `SymBuilder`, twice in
+  `MessageCodec`).
+- `Formats/PythonInt` replaces three divergent `int(s, 0)` parsers. The DBC
+  message length and KCD frame id are now parsed with Python's exact rules
+  (0x/0o/0b prefixes, sign, leading-zero rejection) instead of a laxer
+  `long.Parse` — stricter, and closer to upstream.
+- `Formats/FormatEncodings` owns cp1252 and the code-pages registration;
+  `SymReader` gained its own `DefaultEncoding` instead of borrowing
+  `DbcReader`'s.
+- `ParseException` moved from the root namespace to `CanTools.Formats`, next to
+  `UnsupportedDatabaseFormatException` (it was only ever thrown by parsers).
+- `RelationAttribute` is immutable again: the long-name rekey in `DbcBuilder`
+  rebuilds entries instead of mutating `SignalName` through an internal setter.
+- `SignalSorts.ByName` was removed (never used); `SignalSorts.None` documents
+  that it is recognized by identity (the port of Python's `sort_signals=None`),
+  and the DBC writer checks it via `SignalSorts.KeepsDeclarationOrder`.
+- `EncodeException` gained the `(message, innerException)` constructor the rest
+  of the exception family already had.
+- CANopen: `OdArray`/`OdRecord` share the new `OdComposite` base (the member
+  dictionaries were duplicated); `CanOpenFrames` centralizes the frame length
+  error format and python-canopen's "Code 0x…, Description" text (EMCY and
+  `SdoAbort` had copies); `SdoBlockFrame` now exposes the wire layout
+  (`Command`, `IsCarrierSide`, `IsEnd`, `PaddingCount`, `SubCommand`,
+  `AckSequence`, `Multiplexer`) so `CanOpenLogInterpreter` no longer parses
+  block frame bytes by hand.
+- CANopen naming: `Heartbeat` → `HeartbeatMessage` (aligning with the other
+  frame codecs), and the frame-wrapping `CanOpenEvent` properties are named
+  after their protocol object (`Nmt`, `Emergency`, `Sync`, `Time`) so
+  `Message` only ever means `Model.Message` (`PdoEvent.Message`).
+
+Considered and deliberately skipped: merging the tiny CANopen enum files
+(`NmtState`, `CanOpenFunction`, `SdoDirection`) — the one-public-type-per-file
+rule wins; renaming `NamedSignalValue` — it is upstream's name and the
+PORTING.md mapping builds on it; routing `PdoDatabase.PdoName` through
+`CobId.Function` — the name formula is deliberately python-canopen's and also
+applies to non-connection-set COB-IDs where `CobId` would classify differently;
+a shared DBC/SYM tokenizer base — two similar hand-written tokenizers are not
+yet a pattern worth an abstraction; the multi-language `Comments` machinery
+stays for the planned ARXML phase.

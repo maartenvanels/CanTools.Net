@@ -11,13 +11,16 @@ public static partial class SymReader
     [GeneratedRegex("^FormatVersion=6.0", RegexOptions.Multiline)]
     private static partial Regex VersionGate();
 
+    /// <summary>The encoding used by <see cref="LoadFile"/> when none is given (cp1252).</summary>
+    public static Encoding DefaultEncoding => FormatEncodings.Cp1252;
+
     public static Database LoadFile(
         string path,
         Encoding? encoding = null,
         bool strict = true,
         SignalSort? sortSignals = null)
     {
-        var text = File.ReadAllText(path, encoding ?? Formats.Dbc.DbcReader.DefaultEncoding);
+        var text = File.ReadAllText(path, encoding ?? DefaultEncoding);
 
         return LoadString(text, strict, sortSignals);
     }

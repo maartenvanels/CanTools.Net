@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using CanTools.Logs;
 using CanTools.Model;
 
@@ -89,7 +88,7 @@ public sealed class CanOpenLogInterpreter
 
     private CanOpenEvent InterpretHeartbeat(LogEntry entry, int nodeId)
     {
-        var heartbeat = Heartbeat.Parse(entry.Data);
+        var heartbeat = HeartbeatMessage.Parse(entry.Data);
         NmtState? previous = _nodeStates.TryGetValue(nodeId, out var state) ? state : null;
         _nodeStates[nodeId] = heartbeat.State;
 
@@ -211,28 +210,18 @@ public sealed class CanOpenLogInterpreter
     private CanOpenEvent? InterpretBlock(
         LogEntry entry, int nodeId, SdoTransfer? transfer, SdoBlockFrame block)
     {
-        var data = block.Data;
-        var command = data[0];
-
-        // The 0xC0 command family belongs to the side that carries the data
-        // (client for downloads, server for uploads) and holds initiate and end
-        // frames; the 0xA0 family belongs to the receiving side and holds
-        // initiate acks, the upload start, segment acks and end acks.
-        var isCarrierSide = block.Direction == (block.Transfer == SdoBlockTransfer.Download
-            ? SdoDirection.Request
-            : SdoDirection.Response);
-
-        if (isCarrierSide)
+        if (block.IsCarrierSide)
         {
-            if ((command & 0x01) == 0)
+            if (!block.IsEnd)
             {
                 if (block.Direction == SdoDirection.Request)
                 {
                     // block download initiate
+                    var (index, subindex) = block.Multiplexer;
                     _transfers[nodeId] = new SdoTransfer(isDownload: true)
                     {
-                        Index = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(1)),
-                        Subindex = data[3],
+                        Index = index,
+                        Subindex = subindex,
                         Phase = BlockPhase.Initiating,
                     };
                 }
@@ -242,14 +231,14 @@ public sealed class CanOpenLogInterpreter
                 return null;
             }
 
-            // End frame: n = number of padding bytes in the last segment. The CRC
-            // in bytes 1-2 is not verified; a log records what happened either way.
+            // End frame: the CRC in bytes 1-2 is not verified; a log records what
+            // happened either way.
             if (transfer is null)
             {
                 return null;
             }
 
-            transfer.TrimBlockTail((command >> 2) & 0x7);
+            transfer.TrimBlockTail(block.PaddingCount);
 
             if (block.Direction == SdoDirection.Response)
             {
@@ -263,14 +252,15 @@ public sealed class CanOpenLogInterpreter
             return null;
         }
 
-        switch (command & 0x03)
+        switch (block.SubCommand)
         {
             case 0 when block.Direction == SdoDirection.Request:
                 // block upload initiate (blksize in byte 4, pst in byte 5)
+                var (uploadIndex, uploadSubindex) = block.Multiplexer;
                 _transfers[nodeId] = new SdoTransfer(isDownload: false)
                 {
-                    Index = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(1)),
-                    Subindex = data[3],
+                    Index = uploadIndex,
+                    Subindex = uploadSubindex,
                     Phase = BlockPhase.Initiating,
                 };
                 return null;
@@ -295,7 +285,7 @@ public sealed class CanOpenLogInterpreter
 
             case 2:
                 // segment ack: commits sequence numbers 1..ackseq of the round
-                transfer?.AcknowledgeBlock(data[1]);
+                transfer?.AcknowledgeBlock(block.AckSequence);
                 return null;
 
             default:

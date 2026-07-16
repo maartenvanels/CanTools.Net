@@ -283,9 +283,9 @@ var pdos = PdoDatabase.Create(od);
 var values = pdos.DecodeMessage(0x185u, frame);   // TPDO1 of node 5
 ```
 
-For the protocol frames there are stateless codecs — `NmtMessage`, `Heartbeat`,
-`EmergencyMessage`, `SyncMessage`, `TimeMessage` and the `SdoFrame` family —
-each with `Parse` and `ToBytes`:
+For the protocol frames there are stateless codecs — `NmtMessage`,
+`HeartbeatMessage`, `EmergencyMessage`, `SyncMessage`, `TimeMessage` and the
+`SdoFrame` family — each with `Parse` and `ToBytes`:
 
 ```csharp
 var emergency = EmergencyMessage.Parse(frame);
@@ -308,7 +308,7 @@ foreach (var evt in interpreter.Interpret(new LogParser(reader).ReadEntries()))
             Console.WriteLine($"{pdo.Message.Name}: {pdo.Signals["Velocity"]}");
             break;
         case EmergencyEvent emcy:
-            Console.WriteLine($"node {emcy.NodeId}: {emcy.Message}");
+            Console.WriteLine($"node {emcy.NodeId}: {emcy.Emergency}");
             break;
         case SdoDownloadEvent sdo:
             Console.WriteLine($"wrote 0x{sdo.Index:X4}:{sdo.Subindex} = {Convert.ToHexString(sdo.Data)}");

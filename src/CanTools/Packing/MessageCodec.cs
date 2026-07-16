@@ -159,10 +159,10 @@ public sealed class MessageCodec
                 decoded[field.Name] = field.Conversion.RawToScaled(raw, decodeChoices);
             }
             else if (decodeChoices
-                     && NamedSignalConversion.TryGetIntegral(raw, out var key)
-                     && field.Conversion.Choices?.TryGetValue(key, out var choice) == true)
+                     && field.Conversion is NamedSignalConversion named
+                     && named.TryGetChoice(raw, out var choice))
             {
-                decoded[field.Name] = choice!;
+                decoded[field.Name] = choice;
             }
             else
             {
@@ -184,9 +184,7 @@ public sealed class MessageCodec
                 return conversion.NumericScaledToRaw(value);
             }
 
-            return conversion.IsFloat || value.IsInteger
-                ? value
-                : (SignalValue)(long)Math.Round(value.ToDouble(), MidpointRounding.ToEven);
+            return Conversion.RoundUnlessFloat(value, conversion.IsFloat);
         }
 
         if (value.Named is { } named)
@@ -304,7 +302,7 @@ public sealed class MessageCodec
             if (field.ByteOrder == ByteOrder.BigEndian)
             {
                 // Normalize the DBC sawtooth start bit to the network position of the MSB.
-                MsbNetworkBit = 8 * (field.StartBit / 8) + (7 - field.StartBit % 8);
+                MsbNetworkBit = BitNumbering.SawtoothToNetwork(field.StartBit);
                 SequentialEndBit = MsbNetworkBit + field.Length;
             }
             else
@@ -340,7 +338,7 @@ public sealed class MessageCodec
             {
                 for (var i = field.Length - 1; i >= 0; i--)
                 {
-                    value = (value << 1) | GetBit(data, ToNetwork(field.StartBit + i));
+                    value = (value << 1) | GetBit(data, BitNumbering.SawtoothToNetwork(field.StartBit + i));
                 }
             }
 
@@ -362,7 +360,7 @@ public sealed class MessageCodec
             {
                 for (var i = 0; i < field.Length; i++)
                 {
-                    SetBit(data, ToNetwork(field.StartBit + i), (value >> i) & 1);
+                    SetBit(data, BitNumbering.SawtoothToNetwork(field.StartBit + i), (value >> i) & 1);
                 }
             }
         }
@@ -382,15 +380,10 @@ public sealed class MessageCodec
             {
                 for (var i = 0; i < field.Length; i++)
                 {
-                    ClearBit(mask, ToNetwork(field.StartBit + i));
+                    ClearBit(mask, BitNumbering.SawtoothToNetwork(field.StartBit + i));
                 }
             }
         }
-
-        // Sawtooth numbering counts bits from the LSB within each byte, network
-        // numbering from the MSB.
-        private static int ToNetwork(int sawtoothBit) =>
-            8 * (sawtoothBit / 8) + (7 - sawtoothBit % 8);
 
         private static ulong GetBit(ReadOnlySpan<byte> data, int networkBit) =>
             (ulong)(data[networkBit >> 3] >> (7 - (networkBit & 7))) & 1;

@@ -14,7 +14,7 @@ public sealed class RelationAttribute
     }
 
     /// <summary>The signal of the relation, or null for node-to-message attributes.</summary>
-    public string? SignalName { get; internal set; }
+    public string? SignalName { get; }
 
     public string NodeName { get; }
 

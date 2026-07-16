@@ -11,14 +11,14 @@ namespace CanTools.CanOpen;
 public abstract record CanOpenEvent(LogEntry Entry);
 
 /// <summary>An NMT master command.</summary>
-public sealed record NmtCommandEvent(LogEntry Entry, NmtMessage Message) : CanOpenEvent(Entry);
+public sealed record NmtCommandEvent(LogEntry Entry, NmtMessage Nmt) : CanOpenEvent(Entry);
 
 /// <summary>A node announced itself after initialisation.</summary>
 public sealed record BootUpEvent(LogEntry Entry, int NodeId) : CanOpenEvent(Entry);
 
 /// <summary>A heartbeat or node guarding response.</summary>
 public sealed record HeartbeatEvent(
-    LogEntry Entry, int NodeId, Heartbeat Heartbeat, NmtState? PreviousState) : CanOpenEvent(Entry)
+    LogEntry Entry, int NodeId, HeartbeatMessage Heartbeat, NmtState? PreviousState) : CanOpenEvent(Entry)
 {
     /// <summary>True when the reported state differs from the node's last known state.</summary>
     public bool IsStateChange => PreviousState != Heartbeat.State;
@@ -26,13 +26,13 @@ public sealed record HeartbeatEvent(
 
 /// <summary>An emergency message.</summary>
 public sealed record EmergencyEvent(
-    LogEntry Entry, int NodeId, EmergencyMessage Message) : CanOpenEvent(Entry);
+    LogEntry Entry, int NodeId, EmergencyMessage Emergency) : CanOpenEvent(Entry);
 
 /// <summary>A SYNC frame.</summary>
-public sealed record SyncEvent(LogEntry Entry, SyncMessage Message) : CanOpenEvent(Entry);
+public sealed record SyncEvent(LogEntry Entry, SyncMessage Sync) : CanOpenEvent(Entry);
 
 /// <summary>A TIME frame.</summary>
-public sealed record TimeEvent(LogEntry Entry, TimeMessage Message) : CanOpenEvent(Entry);
+public sealed record TimeEvent(LogEntry Entry, TimeMessage Time) : CanOpenEvent(Entry);
 
 /// <summary>A PDO decoded through the projected database.</summary>
 public sealed record PdoEvent(

@@ -73,7 +73,7 @@ public readonly struct EmergencyMessage
     {
         if (data.Length < 8)
         {
-            throw new DecodeException($"An EMCY frame has 8 data bytes, but got {data.Length}.");
+            throw CanOpenFrames.WrongLength("An EMCY", "8 data bytes", data.Length);
         }
 
         return new EmergencyMessage(
@@ -91,12 +91,6 @@ public readonly struct EmergencyMessage
     }
 
     // matches python-canopen's EmcyError formatting
-    public override string ToString()
-    {
-        var description = Description;
-
-        return description.Length == 0
-            ? $"Code 0x{ErrorCode:X4}"
-            : $"Code 0x{ErrorCode:X4}, {description}";
-    }
+    public override string ToString() =>
+        CanOpenFrames.Describe($"Code 0x{ErrorCode:X4}", Description);
 }

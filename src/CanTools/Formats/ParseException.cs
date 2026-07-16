@@ -1,4 +1,4 @@
-namespace CanTools;
+namespace CanTools.Formats;
 
 /// <summary>Thrown when a database file cannot be parsed.</summary>
 public class ParseException : CanToolsException

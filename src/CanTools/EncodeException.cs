@@ -7,4 +7,9 @@ public class EncodeException : CanToolsException
         : base(message)
     {
     }
+
+    public EncodeException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
 }

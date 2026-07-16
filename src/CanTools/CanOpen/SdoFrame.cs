@@ -335,14 +335,8 @@ public sealed record SdoAbort(ushort Index, byte Subindex, SdoAbortCode Code) : 
     }
 
     // matches python-canopen's SdoAbortedError formatting
-    public override string ToString()
-    {
-        var description = Description;
-
-        return description.Length == 0
-            ? $"Code 0x{(uint)Code:X8}"
-            : $"Code 0x{(uint)Code:X8}, {description}";
-    }
+    public override string ToString() =>
+        CanOpenFrames.Describe($"Code 0x{(uint)Code:X8}", Description);
 }
 
 /// <summary>Which value a block transfer moves.</summary>
@@ -353,7 +347,38 @@ public enum SdoBlockTransfer
 }
 
 /// <summary>
-/// A block transfer protocol frame, classified but not decoded further: block
-/// sequencing is stateful and belongs to the log interpreter.
+/// A block transfer protocol frame. The wire layout of the command byte and the
+/// initiate header is exposed here; block sequencing is stateful and belongs to
+/// the log interpreter.
 /// </summary>
-public sealed record SdoBlockFrame(SdoDirection Direction, SdoBlockTransfer Transfer, byte[] Data) : SdoFrame;
+public sealed record SdoBlockFrame(SdoDirection Direction, SdoBlockTransfer Transfer, byte[] Data) : SdoFrame
+{
+    /// <summary>The command specifier byte.</summary>
+    public byte Command => Data[0];
+
+    /// <summary>
+    /// Whether the frame comes from the side that carries the payload — the client
+    /// for downloads, the server for uploads (the 0xC0 command family). The other
+    /// side sends the 0xA0 family: initiate acks, the upload start, segment acks
+    /// and end acks.
+    /// </summary>
+    public bool IsCarrierSide =>
+        Direction == (Transfer == SdoBlockTransfer.Download
+            ? SdoDirection.Request
+            : SdoDirection.Response);
+
+    /// <summary>Carrier side: whether this is the end frame instead of an initiate.</summary>
+    public bool IsEnd => (Command & 0x01) != 0;
+
+    /// <summary>The number of padding bytes in the last segment, from an end frame.</summary>
+    public int PaddingCount => (Command >> 2) & 0x7;
+
+    /// <summary>Receiver side: the sub-command in bits 0-1.</summary>
+    public int SubCommand => Command & 0x03;
+
+    /// <summary>The acknowledged sequence number of a segment ack.</summary>
+    public byte AckSequence => Data[1];
+
+    /// <summary>The index and subindex of an initiate frame.</summary>
+    public (ushort Index, byte Subindex) Multiplexer => ReadHeader(Data);
+}

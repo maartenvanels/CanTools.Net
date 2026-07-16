@@ -36,7 +36,7 @@ CiA 311 XDD/XDC, CPJ).
   only meaningful for connection-set COB-IDs.
 - **E3 — frame codecs: done.** Stateless parse/build per frame type in
   `CanOpen/`: `NmtMessage` + `NmtCommand`/`NmtState` (with the command → target
-  state map), `Heartbeat` (node guarding toggle bit split off, boot-up = state
+  state map), `HeartbeatMessage` (node guarding toggle bit split off, boot-up = state
   0), `EmergencyMessage` (CiA 301 error-class table and python-canopen's
   "Code 0x2001, Current" formatting), `SyncMessage`, `TimeMessage` (1984 epoch,
   ms-of-day + days, both directions), and the `SdoFrame` record family:

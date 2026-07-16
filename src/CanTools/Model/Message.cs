@@ -572,7 +572,7 @@ public sealed class Message
         }
 
         return Enumerable.Range(signal.StartBit, signal.Length)
-            .Select(bit => 8 * (bit / 8) + (7 - bit % 8))
+            .Select(BitNumbering.SawtoothToNetwork)
             .Order();
     }
 

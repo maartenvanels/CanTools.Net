@@ -43,7 +43,7 @@ public static partial class EdsReader
 
         if (ini.Find("Comments") is { } comments)
         {
-            var count = (int)ParseInteger(comments.GetValueOrNull("Lines") ?? "0");
+            var count = (int)PythonInt.Parse(comments.GetValueOrNull("Lines") ?? "0");
             od.Comments = string.Join('\n', Enumerable.Range(1, count).Select(i =>
                 comments.GetValueOrNull($"Line{i}")
                 ?? throw new ParseException($"[Comments] is missing Line{i}.")));
@@ -66,7 +66,7 @@ public static partial class EdsReader
             // An explicit node id wins over the one in the file.
             if (nodeId is null && commissioning.GetValueOrNull("NodeID") is { } id)
             {
-                nodeId = (int)ParseInteger(id);
+                nodeId = (int)PythonInt.Parse(id);
             }
 
             od.NodeId = nodeId;
@@ -107,7 +107,7 @@ public static partial class EdsReader
 
         foreach (var rate in StandardBaudrates)
         {
-            if (ParseInteger(section.GetValueOrNull($"BaudRate_{rate}") ?? "0") != 0)
+            if (PythonInt.Parse(section.GetValueOrNull($"BaudRate_{rate}") ?? "0") != 0)
             {
                 baudrates.Add(rate * 1000);
             }
@@ -131,10 +131,10 @@ public static partial class EdsReader
     }
 
     private static long? OptionalInteger(IniSection section, string key) =>
-        section.GetValueOrNull(key) is { } value ? (long)ParseInteger(value) : null;
+        section.GetValueOrNull(key) is { } value ? (long)PythonInt.Parse(value) : null;
 
     private static bool? OptionalFlag(IniSection section, string key) =>
-        section.GetValueOrNull(key) is { } value ? ParseInteger(value) != 0 : null;
+        section.GetValueOrNull(key) is { } value ? PythonInt.Parse(value) != 0 : null;
 
     private static void LoadDummies(IniSection section, ObjectDictionary od)
     {
@@ -159,7 +159,7 @@ public static partial class EdsReader
         IniFile ini, IniSection section, ObjectDictionary od, int? nodeId)
     {
         var index = Convert.ToInt32(section.Name, 16);
-        var objectType = (int)ParseInteger(section.GetValueOrNull("ObjectType") ?? "0x07");
+        var objectType = (int)PythonInt.Parse(section.GetValueOrNull("ObjectType") ?? "0x07");
 
         switch (objectType)
         {
@@ -203,18 +203,13 @@ public static partial class EdsReader
         var index = Convert.ToInt32(match.Groups[1].Value, 16);
         var subindex = Convert.ToInt32(match.Groups[2].Value, 16);
         var entry = od[index];
-        var objectType = (int)ParseInteger(section.GetValueOrNull("ObjectType") ?? "0x07");
+        var objectType = (int)PythonInt.Parse(section.GetValueOrNull("ObjectType") ?? "0x07");
         var variable = BuildVariable(ini, section, nodeId, objectType, index, subindex);
 
-        switch (entry)
+        // Subindex sections under a plain variable are ignored.
+        if (entry is OdComposite composite)
         {
-            case OdRecord record:
-                record.AddMember(variable);
-                break;
-            case OdArray array:
-                array.AddMember(variable);
-                break;
-                // Subindex sections under a plain variable are ignored.
+            composite.AddMember(variable);
         }
     }
 
@@ -265,7 +260,7 @@ public static partial class EdsReader
             IsDomain = objectType == 0x02,
         };
 
-        var dataTypeCode = (int)ParseInteger(RequiredOption(section, "DataType"));
+        var dataTypeCode = (int)PythonInt.Parse(RequiredOption(section, "DataType"));
 
         // Codes above UNSIGNED64 are CANFestival-style indirections: the real code
         // sits in [<code>sub1] DefaultValue; without that section the type is
@@ -273,7 +268,7 @@ public static partial class EdsReader
         if (dataTypeCode > 0x1B)
         {
             dataTypeCode = ini.Find($"{dataTypeCode:X}sub1")?.GetValueOrNull("DefaultValue") is { } real
-                ? (int)ParseInteger(real)
+                ? (int)PythonInt.Parse(real)
                 : (int)CanOpenDataType.Domain;
         }
 
@@ -281,7 +276,7 @@ public static partial class EdsReader
 
         if (section.GetValueOrNull("PDOMapping") is { } pdoMapping)
         {
-            variable.PdoMappable = ParseInteger(pdoMapping) != 0;
+            variable.PdoMappable = PythonInt.Parse(pdoMapping) != 0;
         }
 
         variable.Minimum = ParseLimit(section.GetValueOrNull("LowLimit"), variable.DataType);
@@ -343,7 +338,7 @@ public static partial class EdsReader
                 return SignedFromEds(text, dataType.BitLength()!.Value);
             }
 
-            return checked((long)ParseInteger(text));
+            return checked((long)PythonInt.Parse(text));
         }
         catch (Exception e) when (e is FormatException or OverflowException)
         {
@@ -355,7 +350,7 @@ public static partial class EdsReader
     // INTEGER16 means -1. Out-of-range values are rejected.
     internal static long SignedFromEds(string text, int bitWidth)
     {
-        var value = ParseInteger(text);
+        var value = PythonInt.Parse(text);
         var unsignedMax = (Int128.One << bitWidth) - 1;
         var signedMax = (Int128.One << (bitWidth - 1)) - 1;
         var signedMin = -(Int128.One << (bitWidth - 1));
@@ -398,10 +393,10 @@ public static partial class EdsReader
 
                         var rest = NodeIdToken().Replace(normalized, "");
 
-                        return checked((long)ParseInteger(rest) + nodeId.Value);
+                        return checked((long)PythonInt.Parse(rest) + nodeId.Value);
                     }
 
-                    var number = ParseInteger(normalized);
+                    var number = PythonInt.Parse(normalized);
 
                     return number >= 0 && number > long.MaxValue
                         ? (ulong)number
@@ -418,77 +413,4 @@ public static partial class EdsReader
         section.GetValueOrNull(key)
         ?? throw new ParseException($"[{section.Name}] is missing {key}.");
 
-    // Python's int(s, 0): sign, 0x/0o/0b prefixes, decimal without leading zeros.
-    internal static Int128 ParseInteger(string text)
-    {
-        text = text.Trim();
-        var negative = false;
-
-        if (text.StartsWith('-') || text.StartsWith('+'))
-        {
-            negative = text[0] == '-';
-            text = text[1..];
-        }
-
-        if (text.Length == 0)
-        {
-            throw new FormatException("Empty number.");
-        }
-
-        Int128 magnitude;
-
-        if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-        {
-            magnitude = ParseDigits(text[2..], 16);
-        }
-        else if (text.StartsWith("0o", StringComparison.OrdinalIgnoreCase))
-        {
-            magnitude = ParseDigits(text[2..], 8);
-        }
-        else if (text.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
-        {
-            magnitude = ParseDigits(text[2..], 2);
-        }
-        else
-        {
-            if (text.Length > 1 && text[0] == '0' && text.TrimStart('0').Length > 0)
-            {
-                throw new FormatException($"Leading zeros are not allowed: '{text}'.");
-            }
-
-            magnitude = ParseDigits(text, 10);
-        }
-
-        return negative ? -magnitude : magnitude;
-    }
-
-    private static Int128 ParseDigits(string text, int numericBase)
-    {
-        if (text.Length == 0)
-        {
-            throw new FormatException("Missing digits.");
-        }
-
-        Int128 result = 0;
-
-        foreach (var character in text)
-        {
-            var digit = character switch
-            {
-                >= '0' and <= '9' => character - '0',
-                >= 'a' and <= 'f' => character - 'a' + 10,
-                >= 'A' and <= 'F' => character - 'A' + 10,
-                _ => int.MaxValue,
-            };
-
-            if (digit >= numericBase)
-            {
-                throw new FormatException($"Invalid digit '{character}'.");
-            }
-
-            result = checked(result * numericBase + digit);
-        }
-
-        return result;
-    }
 }

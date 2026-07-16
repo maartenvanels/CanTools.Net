@@ -6,16 +6,8 @@ namespace CanTools.Formats.Dbc;
 /// <summary>Reads DBC files into a <see cref="Database"/>.</summary>
 public static class DbcReader
 {
-    static DbcReader()
-    {
-        // cp1252, the customary DBC encoding, needs the code-pages provider on .NET.
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-    }
-
-    /// <summary>The encoding used by <see cref="LoadFile"/> when none is given.</summary>
-    public static Encoding DefaultEncoding =>
-        Encoding.GetEncoding(1252, EncoderFallback.ReplacementFallback,
-                             new DecoderReplacementFallback("�"));
+    /// <summary>The encoding used by <see cref="LoadFile"/> when none is given (cp1252).</summary>
+    public static Encoding DefaultEncoding => FormatEncodings.Cp1252;
 
     public static Database LoadFile(
         string path,

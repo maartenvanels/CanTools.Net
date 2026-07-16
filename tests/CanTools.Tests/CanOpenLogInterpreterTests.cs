@@ -33,14 +33,14 @@ public class CanOpenLogInterpreterTests
         var events = Interpret("000#0105", "080#", "080#02", "100#B0A429043143");
 
         var nmt = Assert.IsType<NmtCommandEvent>(events[0]);
-        Assert.Equal(NmtCommand.Start, nmt.Message.Command);
-        Assert.Equal(5, nmt.Message.NodeId);
+        Assert.Equal(NmtCommand.Start, nmt.Nmt.Command);
+        Assert.Equal(5, nmt.Nmt.NodeId);
 
-        Assert.Null(Assert.IsType<SyncEvent>(events[1]).Message.Counter);
-        Assert.Equal((byte)2, Assert.IsType<SyncEvent>(events[2]).Message.Counter);
+        Assert.Null(Assert.IsType<SyncEvent>(events[1]).Sync.Counter);
+        Assert.Equal((byte)2, Assert.IsType<SyncEvent>(events[2]).Sync.Counter);
 
         var time = Assert.IsType<TimeEvent>(events[3]);
-        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1927999438), time.Message.Timestamp);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1927999438), time.Time.Timestamp);
         Assert.NotNull(time.Entry.Timestamp);
     }
 
@@ -51,8 +51,8 @@ public class CanOpenLogInterpreterTests
             Interpret("085#0120020001020304").Single());
 
         Assert.Equal(5, emergency.NodeId);
-        Assert.Equal(0x2001, emergency.Message.ErrorCode);
-        Assert.Equal("Current", emergency.Message.Description);
+        Assert.Equal(0x2001, emergency.Emergency.ErrorCode);
+        Assert.Equal("Current", emergency.Emergency.Description);
     }
 
     [Fact]

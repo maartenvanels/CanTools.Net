@@ -13,8 +13,7 @@ public readonly record struct NmtMessage(NmtCommand Command, int NodeId)
     {
         if (data.Length < 2)
         {
-            throw new DecodeException(
-                $"An NMT command frame has 2 data bytes, but got {data.Length}.");
+            throw CanOpenFrames.WrongLength("An NMT command", "2 data bytes", data.Length);
         }
 
         return new NmtMessage((NmtCommand)data[0], data[1]);
