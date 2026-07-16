@@ -13,6 +13,7 @@ that makes sense, so its documentation is often a useful second reference.
 - [Writing a DBC file](#writing-a-dbc-file)
 - [J1939 helpers](#j1939-helpers)
 - [CANopen object dictionaries (EDS/DCF)](#canopen-object-dictionaries-edsdcf)
+- [Decoding CANopen PDOs and logs](#decoding-canopen-pdos-and-logs)
 
 ## Loading a database
 
@@ -26,6 +27,17 @@ using CanTools.Formats.Sym;
 var db = DbcReader.LoadFile("vehicle.dbc");
 var fromKcd = KcdReader.LoadFile("vehicle.kcd");
 var fromSym = SymReader.LoadFile("vehicle.sym");
+```
+
+If you don't want to name the format, `DatabaseLoader` picks it from the file
+extension — and when the extension is inconclusive, it probes the content
+against every supported format:
+
+```csharp
+using CanTools.Formats;
+
+var detected = DatabaseLoader.LoadFile("vehicle.kcd");
+var probed = DatabaseLoader.LoadString(someDatabaseText);
 ```
 
 Every reader also has a `LoadString` overload for text you already have in
@@ -254,6 +266,59 @@ if (od.TryGetEntry(0x1018, out var identity))
 ```
 
 Entries are variables, records, or arrays; records and arrays expose their
-members through `TryGetMember(subindex, out var member)`. PDO-to-signal
-projection (turning PDO mappings into decodable `Message` objects) is planned —
-see [CANOPEN.md](../CANOPEN.md) for the design notes.
+members through `TryGetMember(subindex, out var member)`.
+
+## Decoding CANopen PDOs and logs
+
+`PdoDatabase.Create` reads the PDO communication and mapping parameters from an
+object dictionary and projects them onto a plain `Database`, so PDO frames
+decode with the same tooling as any other message:
+
+```csharp
+using CanTools.CanOpen;
+
+var od = EdsReader.LoadFile("motor.eds", nodeId: 5);
+var pdos = PdoDatabase.Create(od);
+
+var values = pdos.DecodeMessage(0x185u, frame);   // TPDO1 of node 5
+```
+
+For the protocol frames there are stateless codecs — `NmtMessage`, `Heartbeat`,
+`EmergencyMessage`, `SyncMessage`, `TimeMessage` and the `SdoFrame` family —
+each with `Parse` and `ToBytes`:
+
+```csharp
+var emergency = EmergencyMessage.Parse(frame);
+Console.WriteLine(emergency);   // Code 0x2001, Current
+```
+
+`CanOpenLogInterpreter` combines all of it: it folds a log stream into typed
+events, reassembling SDO transfers (expedited, segmented and block) along the
+way. Pattern match on the event types you care about:
+
+```csharp
+using var reader = new StreamReader("capture.log");
+var interpreter = new CanOpenLogInterpreter(pdos);
+
+foreach (var evt in interpreter.Interpret(new LogParser(reader).ReadEntries()))
+{
+    switch (evt)
+    {
+        case PdoEvent pdo:
+            Console.WriteLine($"{pdo.Message.Name}: {pdo.Signals["Velocity"]}");
+            break;
+        case EmergencyEvent emcy:
+            Console.WriteLine($"node {emcy.NodeId}: {emcy.Message}");
+            break;
+        case SdoDownloadEvent sdo:
+            Console.WriteLine($"wrote 0x{sdo.Index:X4}:{sdo.Subindex} = {Convert.ToHexString(sdo.Data)}");
+            break;
+        case HeartbeatEvent { IsStateChange: true } hb:
+            Console.WriteLine($"node {hb.NodeId} -> {hb.Heartbeat.State}");
+            break;
+    }
+}
+```
+
+See [CANOPEN.md](../CANOPEN.md) for the design notes and the exact upstream
+(python-canopen) semantics that are matched.
