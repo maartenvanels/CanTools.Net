@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -6,11 +6,36 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <PackageId>CanTools.Net</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Maarten van Els</Authors>
+    <Description>CAN bus database library: read and write DBC, read KCD and SYM, encode/decode messages with multiplexing, J1939 helpers, candump/PCAN log parsing, and CANopen support (EDS/DCF object dictionaries, PDO decoding, frame codecs, log interpretation). A C#/.NET port of the Python cantools library.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/maartenvanels/CanTools.Net</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/maartenvanels/CanTools.Net</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>can;canbus;dbc;kcd;sym;j1939;canopen;eds;dcf;pdo;sdo;candump;cantools</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\THIRD-PARTY-NOTICES.txt" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="CanTools.Tests" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
   </ItemGroup>
 

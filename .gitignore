@@ -5,6 +5,7 @@ obj/
 .idea/
 reference/
 TestResults/
+artifacts/
 
 # Local Claude Code setup — kept out of the public repo
 CLAUDE.md
