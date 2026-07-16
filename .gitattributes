@@ -1,0 +1,4 @@
+* text=auto
+
+# Golden test data copied from upstream — keep byte-for-byte
+tests/files/** -text

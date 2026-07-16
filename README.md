@@ -1,0 +1,45 @@
+# CanTools.Net
+
+A C#/.NET port of the excellent [cantools](https://github.com/cantools/cantools)
+Python library by Erik Moqvist and contributors.
+
+What works today:
+
+- **DBC**: read and write, including attributes, value tables, comments, signal
+  groups, long-name resolution, J1939/CAN FD detection and relation attributes.
+- **KCD** and **SYM 6.0**: read.
+- **Encode/decode** CAN messages with scaling, choices, floats, and simple and
+  extended multiplexing — verified against the cantools test suite.
+- **J1939** frame id and PGN helpers.
+- **Log reading**: candump (plain, `-tz`, `-l`, `-tA`) and PCAN trace 1.0–2.1.
+- **CANopen EDS/DCF**: read object dictionaries (CiA 306), including `$NODEID`
+  expressions and compact arrays — verified against python-canopen. PDO-to-signal
+  projection and frame codecs are planned; see `CANOPEN.md`.
+
+```csharp
+using CanTools.Formats.Dbc;
+
+var db = DbcReader.LoadFile("vehicle.dbc");
+var data = db.EncodeMessage("ExampleMessage", new Dictionary<string, SignalValue>
+{
+    ["Temperature"] = 250.55,
+    ["Enable"] = "Enabled",
+});
+var decoded = db.DecodeMessage("ExampleMessage", data);
+```
+
+More examples — loading databases, decoding log files, J1939, CANopen — in
+[docs/examples.md](docs/examples.md).
+
+This is an independent port and is not affiliated with the cantools maintainers.
+Behavior is verified against the upstream test suite and cross-checked against
+the Python implementation; see `PORTING.md` for exactly what has been ported and
+which deviations exist, and `PLAN.md` for the roadmap. Not yet ported: ARXML and
+CDD parsing, KCD/SYM writing, container messages, and the CLI tools.
+
+Work in progress — the API is not stable yet.
+
+## License
+
+MIT. Portions derived from cantools, Copyright (c) 2015-2019 Erik Moqvist, also MIT —
+see `THIRD-PARTY-NOTICES.txt`.
