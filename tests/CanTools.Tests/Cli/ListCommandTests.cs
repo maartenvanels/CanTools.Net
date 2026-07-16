@@ -10,7 +10,9 @@ public class ListCommandTests
 
         Assert.Equal("", stderr);
         Assert.Equal(0, exitCode);
-        Assert.Equal(expected, stdout);
+        // raw string literals inherit the source file's line endings, which git may
+        // check out as CRLF; the CLI always writes LF
+        Assert.Equal(expected.ReplaceLineEndings("\n"), stdout);
     }
 
     // ported from test_list.py::test_dbc (message name listing)

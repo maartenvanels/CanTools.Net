@@ -8,7 +8,9 @@ public class DecodeCommandTests
 
         Assert.Equal("", stderr);
         Assert.Equal(0, exitCode);
-        Assert.Equal(expected, stdout);
+        // raw string literals inherit the source file's line endings, which git may
+        // check out as CRLF; the CLI always writes LF
+        Assert.Equal(expected.ReplaceLineEndings("\n"), stdout);
     }
 
     // ported from test_command_line.py::test_decode
