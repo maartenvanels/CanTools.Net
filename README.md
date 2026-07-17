@@ -51,6 +51,12 @@ cantools-net list vehicle.dbc
 cantools-net convert vehicle.kcd vehicle.dbc
 ```
 
+If you would rather not install the .NET SDK, each
+[GitHub release](https://github.com/maartenvanels/CanTools.Net/releases) also
+attaches a self-contained `cantools-net` executable for Windows, Linux and macOS
+(x64 and Apple Silicon). Download the one for your platform, and run it directly —
+no runtime required (on Linux/macOS, `chmod +x` it first).
+
 This is an independent port and is not affiliated with the cantools maintainers.
 CANopen is a registered trademark of CAN in Automation (CiA); this project is not
 affiliated with or endorsed by CiA.
