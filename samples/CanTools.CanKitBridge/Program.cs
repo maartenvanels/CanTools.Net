@@ -42,28 +42,18 @@ byte[] payload = db.EncodeMessage("EngineStatus", new Dictionary<string, SignalV
 Console.WriteLine($"Encoded 0x{message.FrameId:X3}: {Convert.ToHexString(payload)}");
 
 // 2. Open two handles on the same in-process virtual bus: one to receive, one
-//    to transmit. Open the receiver first and subscribe before transmitting.
+//    to transmit. Open the receiver first, before transmitting.
 using var rxBus = CanBus.Open("virtual://alpha/0");
 using var txBus = CanBus.Open("virtual://alpha/0");
-
-CanFrame? receivedFrame = null;
-using var gotFrame = new ManualResetEventSlim(false);
-// FrameReceived hands back a CanReceiveData whose .CanFrame is a real CanFrame,
-// exactly what FrameBridge.FromCanKit consumes. Its successor FrameObserved
-// only exposes a read-only CanFrameView, so we deliberately keep FrameReceived.
-#pragma warning disable CS0618 // FrameReceived is marked obsolete in CanKit 0.5.5
-rxBus.FrameReceived += (_, e) =>
-{
-    receivedFrame = e.CanFrame;
-    gotFrame.Set();
-};
-#pragma warning restore CS0618
 
 // 3. Push the encoded frame across the bus via CanKit.
 txBus.Transmit(FrameBridge.ToCanKit(message.FrameId, payload));
 
-// 4. Wait for it to arrive on the receiver.
-if (!gotFrame.Wait(TimeSpan.FromSeconds(2)) || receivedFrame is null)
+// 4. Receive it synchronously from the receiver, with a timeout. CanReceiveData
+//    is a struct, so materialize the result and check the count rather than
+//    comparing against a default/null sentinel.
+var received = rxBus.Receive(1, 2000).ToList();
+if (received.Count == 0)
 {
     Console.Error.WriteLine("No frame received from the virtual bus.");
     return 1;
@@ -71,7 +61,7 @@ if (!gotFrame.Wait(TimeSpan.FromSeconds(2)) || receivedFrame is null)
 
 // 5. Decode the frame that came off the bus with CanTools.Net, by the id that
 //    survived the round trip.
-var (frameId, data) = FrameBridge.FromCanKit(receivedFrame.Value);
+var (frameId, data) = FrameBridge.FromCanKit(received[0].CanFrame);
 var decoded = db.DecodeMessage(frameId, data);
 
 Console.WriteLine($"\nDecoded 0x{frameId:X3} off the bus:");
