@@ -3,6 +3,10 @@
     <Project Path="src/CanTools/CanTools.csproj" />
     <Project Path="src/CanTools.Cli/CanTools.Cli.csproj" />
   </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/CanTools.Sample/CanTools.Sample.csproj" />
+    <Project Path="samples/CanTools.CanKitBridge/CanTools.CanKitBridge.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/CanTools.Tests/CanTools.Tests.csproj" />
   </Folder>
