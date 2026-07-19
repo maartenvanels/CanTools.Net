@@ -302,7 +302,7 @@ public class SdoBlockReassemblerTests
     {
         var reassembler = new SdoBlockReassembler();
         reassembler.AddSegment([0x01, 1, 2, 3, 4, 5, 6, 7]);       // seq 1
-        reassembler.AddSegment([0x82, 8, 9, 0, 0, 0, 0, 0]);        // seq 2, last (bit 7)
+        reassembler.AddSegment([0x82, 8, 9]);                       // seq 2, last (bit 7), DLC 3 (no padding)
 
         var finished = reassembler.Acknowledge(2);
 
