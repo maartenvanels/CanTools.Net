@@ -73,4 +73,15 @@ bool ok = decoded["GearPosition"].ToString() == "Third";
 Console.WriteLine(ok
     ? "\nRound trip OK: GearPosition = Third survived encode -> bus -> decode."
     : "\nRound trip FAILED: GearPosition did not match.");
+
+// 6. Prove the ICanChannel adapter composes with the rest of CanTools.Net: wrap
+//    the receiving bus handle and hand it to the SDO client. We stop short of a
+//    live SDO call -- that needs a CANopen server answering on the other end of
+//    the bus, which this virtual demo doesn't have, so UploadAsync/DownloadAsync
+//    would just block until they time out.
+var channel = new CanKitCanChannel(rxBus);
+var sdo = new CanTools.CanOpen.SdoClient(channel, nodeId: 0x0A);
+Console.WriteLine($"\n{sdo.GetType().Name} built over a {nameof(CanKitCanChannel)} (node 0x{0x0A:X2}); " +
+    "no live SDO call is made since the virtual bus has no CANopen server to answer it.");
+
 return ok ? 0 : 2;
