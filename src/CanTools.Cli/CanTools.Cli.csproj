@@ -12,7 +12,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>cantools-net</ToolCommandName>
     <PackageId>CanTools.Net.Cli</PackageId>
-    <Version>0.2.0</Version>
+    <Version>1.0.0</Version>
     <Authors>Maarten van Els</Authors>
     <Description>Command line for CanTools.Net: decode candump/PCAN logs against a CAN database and dump, list or convert DBC, KCD and SYM files. A C#/.NET port of the Python cantools CLI.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

@@ -569,6 +569,34 @@ public class DbcReaderTests
         Assert.Equal("Cyclic", message.SendType);
     }
 
+    // A FLOAT attribute definition may use the full single-precision range in
+    // scientific notation (e.g. Batt_DuraPower.dbc uses -3.4E+038..3.4E+038).
+    // These exceed System.Decimal's range, so the bounds must be parsed as double.
+    [Fact]
+    public void Float_attribute_range_accepts_full_single_precision_scientific_notation()
+    {
+        const string dbc = """
+            VERSION ""
+            NS_ :
+            BS_:
+            BU_:
+
+            BO_ 100 TestMessage: 1 Vector__XXX
+             SG_ Sig : 0|8@1+ (1,0) [0|0] "" Vector__XXX
+
+            BA_DEF_ SG_ "TheFloatAttribute" FLOAT -3.4E+038 3.4E+038;
+            BA_DEF_DEF_ "TheFloatAttribute" 0;
+            BA_ "TheFloatAttribute" SG_ 100 Sig 1.5E+010;
+            """;
+
+        var db = DbcReader.LoadString(dbc);
+        var definition = db.Dbc!.AttributeDefinitions["TheFloatAttribute"];
+
+        Assert.Equal(-3.4e38, definition.Minimum);
+        Assert.Equal(3.4e38, definition.Maximum);
+        Assert.True(db.Messages[0].Signals[0].Dbc!.Attributes["TheFloatAttribute"].Value == 1.5e10);
+    }
+
     // ported from test_database.py::test_j1939_dbc
     [Fact]
     public void J1939_protocol_and_spn()

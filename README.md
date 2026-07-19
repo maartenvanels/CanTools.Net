@@ -5,6 +5,16 @@
 A C#/.NET port of the excellent [cantools](https://github.com/cantools/cantools)
 Python library by Erik Moqvist and contributors.
 
+## Why this library
+
+DbcParserLib is the established .NET choice for DBC files, and for plain DBC
+parsing it works well. CanTools.Net exists for the cases it doesn't cover:
+extended multiplexing (`SG_MUL_VAL_`), signal groups, DBC *writing*, J1939
+helpers, and — uniquely on .NET — the **KCD** and **SYM** formats, **candump/
+PCAN log** parsing, and a full **CANopen** layer (EDS/DCF, PDO decoding, CiA 301
+frame codecs, log interpretation). Behavior is verified against the upstream
+cantools test suite and cross-checked against the Python implementation.
+
 What works today:
 
 - **DBC**: read and write, including attributes, value tables, comments, signal
@@ -35,7 +45,9 @@ var decoded = db.DecodeMessage("ExampleMessage", data);
 ```
 
 More examples — loading databases, decoding log files, J1939, CANopen — in
-[docs/examples.md](docs/examples.md).
+[docs/examples.md](docs/examples.md). For a runnable end-to-end tour, see
+[samples/CanTools.Sample](samples/CanTools.Sample) (`dotnet run --project
+samples/CanTools.Sample`).
 
 ## Command line
 
@@ -66,7 +78,11 @@ which deviations exist, and `PLAN.md` for the roadmap. Not yet ported: ARXML and
 CDD parsing, KCD/SYM writing, container messages, and the `monitor`, `plot` and
 `generate_c_source` subcommands.
 
-Work in progress — the API is not stable yet.
+## Versioning
+
+From 1.0.0 the public API follows [Semantic Versioning](https://semver.org):
+breaking changes ship only in a new major version. See
+[CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 
 ## License
 

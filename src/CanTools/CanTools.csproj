@@ -8,7 +8,7 @@
 
   <PropertyGroup>
     <PackageId>CanTools.Net</PackageId>
-    <Version>0.2.0</Version>
+    <Version>1.0.0</Version>
     <Authors>Maarten van Els</Authors>
     <Description>CAN bus database library: read and write DBC, read KCD and SYM, encode/decode messages with multiplexing, J1939 helpers, candump/PCAN log parsing, and CANopen support (EDS/DCF object dictionaries, PDO decoding, frame codecs, log interpretation). A C#/.NET port of the Python cantools library.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

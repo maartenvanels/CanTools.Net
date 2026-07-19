@@ -41,4 +41,17 @@ public class SignalValueTests
 
         Assert.Throws<InvalidOperationException>(() => label.ToDouble());
     }
+
+    // A decoded choice is a NamedSignalValue: it is a label, but it carries the
+    // raw integer it was mapped from, so numeric access returns that value rather
+    // than throwing (a plain string label still has no number).
+    [Fact]
+    public void Named_values_expose_their_raw_numeric_value()
+    {
+        SignalValue named = new NamedSignalValue(3, "Third");
+
+        Assert.Equal(3.0, named.ToDouble());
+        Assert.Equal(3L, named.ToInt64());
+        Assert.Equal(3UL, named.ToUInt64());
+    }
 }

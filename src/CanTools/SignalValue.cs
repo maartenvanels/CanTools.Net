@@ -62,11 +62,16 @@ public readonly struct SignalValue : IEquatable<SignalValue>
     /// <summary>The named value when this value came from a value table, otherwise null.</summary>
     public NamedSignalValue? Named => _reference as NamedSignalValue;
 
+    /// <summary>
+    /// The numeric value. A named value from a value table returns the raw integer it maps;
+    /// a plain choice label (a string with no numeric backing) throws.
+    /// </summary>
     public double ToDouble() => _kind switch
     {
         Kind.Int64 => (long)_bits,
         Kind.UInt64 => _bits,
         Kind.Double => BitConverter.UInt64BitsToDouble(_bits),
+        Kind.Named => ((NamedSignalValue)_reference!).Value,
         _ => throw new InvalidOperationException($"'{Label}' is not a numeric value."),
     };
 
@@ -75,6 +80,7 @@ public readonly struct SignalValue : IEquatable<SignalValue>
         Kind.Int64 => (long)_bits,
         Kind.UInt64 => checked((long)_bits),
         Kind.Double => checked((long)BitConverter.UInt64BitsToDouble(_bits)),
+        Kind.Named => ((NamedSignalValue)_reference!).Value,
         _ => throw new InvalidOperationException($"'{Label}' is not a numeric value."),
     };
 
@@ -83,6 +89,7 @@ public readonly struct SignalValue : IEquatable<SignalValue>
         Kind.Int64 => checked((ulong)(long)_bits),
         Kind.UInt64 => _bits,
         Kind.Double => checked((ulong)BitConverter.UInt64BitsToDouble(_bits)),
+        Kind.Named => checked((ulong)((NamedSignalValue)_reference!).Value),
         _ => throw new InvalidOperationException($"'{Label}' is not a numeric value."),
     };
 

@@ -835,6 +835,10 @@ internal sealed class DbcBuilder
     private static long ToInt(string text) =>
         (long)decimal.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture);
 
+    // Upstream parses via Decimal purely to be liberal about the literal form;
+    // it then converts to a Python float (a double). Parse straight to double so
+    // the full single-precision range (e.g. FLOAT bounds like -3.4E+038) fits —
+    // System.Decimal's range is far smaller and would overflow on those.
     private static double ToFloat(string text) =>
-        (double)decimal.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture);
+        double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture);
 }
