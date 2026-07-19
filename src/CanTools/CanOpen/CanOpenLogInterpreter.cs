@@ -311,10 +311,7 @@ public sealed class CanOpenLogInterpreter
 
     private sealed class SdoTransfer
     {
-        // Segments of the current block round, by sequence number; only an ack
-        // commits them, so retransmitted rounds overwrite instead of duplicating.
-        private readonly byte[]?[] _round = new byte[128][];
-        private int _lastSequence;
+        private readonly SdoBlockReassembler _reassembler = new();
 
         public SdoTransfer(bool isDownload)
         {
@@ -335,56 +332,23 @@ public sealed class CanOpenLogInterpreter
 
         public BlockPhase Phase { get; set; }
 
-        public List<byte> Data { get; } = [];
+        // The committed payload, used by both segmented and block paths.
+        public List<byte> Data => _reassembler.Data;
 
         /// <summary>The direction the payload travels in: requests for downloads.</summary>
         public SdoDirection CarrierDirection =>
             IsDownload ? SdoDirection.Request : SdoDirection.Response;
 
-        public void AddBlockSegment(byte[] frame)
-        {
-            var sequence = frame[0] & 0x7F;
-
-            if (sequence == 0)
-            {
-                return;
-            }
-
-            _round[sequence] = frame.Length > 1 ? frame[1..Math.Min(8, frame.Length)] : [];
-
-            if ((frame[0] & 0x80) != 0)
-            {
-                _lastSequence = sequence;
-            }
-        }
+        public void AddBlockSegment(byte[] frame) => _reassembler.AddSegment(frame);
 
         public void AcknowledgeBlock(int acknowledged)
         {
-            for (var sequence = 1; sequence <= acknowledged && sequence < _round.Length; sequence++)
-            {
-                if (_round[sequence] is { } segment)
-                {
-                    Data.AddRange(segment);
-                }
-            }
-
-            // A partially acknowledged round is retransmitted from sequence 1.
-            var finished = _lastSequence != 0 && acknowledged >= _lastSequence;
-            Array.Clear(_round);
-            _lastSequence = 0;
-
-            if (finished)
+            if (_reassembler.Acknowledge(acknowledged))
             {
                 Phase = BlockPhase.AwaitingEnd;
             }
         }
 
-        public void TrimBlockTail(int count)
-        {
-            if (count > 0 && Data.Count >= count)
-            {
-                Data.RemoveRange(Data.Count - count, count);
-            }
-        }
+        public void TrimBlockTail(int count) => _reassembler.TrimTail(count);
     }
 }
