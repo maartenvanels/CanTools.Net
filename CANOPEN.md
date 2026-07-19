@@ -77,6 +77,25 @@ no CANopen support. The J1939 helpers set the precedent for protocol helpers; th
 mission stays the same: **files and interpretation, no bus I/O**. README and
 PORTING.md must mark this as an extension, not a port.
 
+## Live SDO client
+
+`SdoClient` reads and writes a remote node's object dictionary over any
+`ICanChannel`. The core ships no channel implementation, so it stays
+dependency-free; bring your own (e.g. the CanKit sample adapter).
+
+```csharp
+using CanTools.CanOpen;
+
+var client = new SdoClient(channel, nodeId: 0x0A);
+byte[] raw = await client.UploadAsync(0x1018, 1);                       // read
+await client.DownloadAsync(0x2000, 0, [0x2A, 0x00, 0x00, 0x00]);        // write
+uint deviceType = (uint)(await client.UploadAsync(0x1000, 0, CanOpenDataType.Unsigned32)).ToUInt64();
+```
+
+Expedited, segmented and block transfers are handled transparently; set
+`SdoClientOptions.EnableBlockTransfer` to attempt block transfer with automatic
+fallback to segmented.
+
 ## Why
 
 Research (July 2026) shows the .NET gap is real:

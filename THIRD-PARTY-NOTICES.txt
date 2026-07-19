@@ -28,3 +28,10 @@ SOFTWARE.
 The CANopen EDS behavior and the test data under tests/files/eds/ are derived from
 python-canopen (https://github.com/canopen-python/canopen), distributed under the
 MIT License, Copyright (c) 2016 Christian Sandberg.
+
+---
+
+Portions of the CANopen SDO test suite (tests/CanTools.Tests/CanOpen/Sdo*)
+mirror behaviour and test scenarios from lely-core (https://gitlab.com/lely_industries/lely-core),
+Copyright Lely Industries N.V., licensed under the Apache License 2.0.
+No source code from lely-core is included; only test scenarios were re-authored in C#.
