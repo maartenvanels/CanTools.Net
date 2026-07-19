@@ -96,6 +96,11 @@ Expedited, segmented and block transfers are handled transparently; set
 `SdoClientOptions.EnableBlockTransfer` to attempt block transfer with automatic
 fallback to segmented.
 
+For a runnable end-to-end tour — reading and writing an object dictionary over a
+simulated in-process node, no hardware required — see
+[samples/CanTools.CanOpenSample](samples/CanTools.CanOpenSample)
+(`dotnet run --project samples/CanTools.CanOpenSample`).
+
 ## Why
 
 Research (July 2026) shows the .NET gap is real:
