@@ -19,6 +19,12 @@ this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`CanOpenObjects`** — named constants for the standard CiA 301
   communication-profile object indices (`DeviceType`, `ManufacturerDeviceName`,
   `StoreParameters`, `IdentityObject`, …).
+- **DCF writer (`DcfWriter`).** Writes an `ObjectDictionary` loaded from an EDS/DCF
+  back to a DCF, preserving the source file's comments, ordering and unknown keys and
+  layering in the commissioning data and configured `ParameterValue`s. An unchanged
+  dictionary round-trips byte-for-byte; untouched values (including `$NODEID`
+  expressions) are echoed verbatim. New `ObjectDictionary.SetValue` and public
+  `NodeId`/`Bitrate` setters drive it. See `CANOPEN.md`.
 
 ### Changed
 

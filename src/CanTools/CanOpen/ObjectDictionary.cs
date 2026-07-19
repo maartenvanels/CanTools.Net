@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using CanTools.Formats.Eds;
 
 namespace CanTools.CanOpen;
 
@@ -18,12 +19,19 @@ public sealed class ObjectDictionary
     public string Comments { get; internal set; } = "";
 
     /// <summary>The commissioned bitrate in bit/s, or null.</summary>
-    public int? Bitrate { get; internal set; }
+    public int? Bitrate { get; set; }
 
     /// <summary>The commissioned node id, or null.</summary>
-    public int? NodeId { get; internal set; }
+    public int? NodeId { get; set; }
 
     public DeviceInformation DeviceInformation { get; } = new();
+
+    /// <summary>
+    /// The source file this dictionary was loaded from, kept verbatim so it can be
+    /// written back with edits (see <c>DcfWriter</c>). Null for dictionaries not
+    /// loaded from a file.
+    /// </summary>
+    internal IniDocument? SourceDocument { get; set; }
 
     public OdEntry this[int index] =>
         _byIndex.TryGetValue(index, out var entry)
@@ -78,6 +86,25 @@ public sealed class ObjectDictionary
             return null;
         }
     }
+
+    /// <summary>
+    /// Sets the configured value (the DCF <c>ParameterValue</c>) of the variable at
+    /// <paramref name="index"/>/<paramref name="subIndex"/>, so a subsequent write
+    /// emits it. Throws when there is no such variable.
+    /// </summary>
+    public void SetValue(int index, int subIndex, OdValue value)
+    {
+        var variable = GetVariable(index, subIndex)
+            ?? throw new KeyNotFoundException(
+                $"The object dictionary has no variable at 0x{index:X4}sub{subIndex:X}.");
+
+        variable.Value = value;
+        variable.ValueIsOverridden = true;
+    }
+
+    /// <summary>Sets the configured value of the entry named <paramref name="name"/>.</summary>
+    public void SetValue(string name, OdValue value, int subIndex = 0) =>
+        SetValue(this[name].Index, subIndex, value);
 
     internal void Add(OdEntry entry)
     {

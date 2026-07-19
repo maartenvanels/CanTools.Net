@@ -39,7 +39,7 @@ public static partial class EdsReader
     public static ObjectDictionary LoadString(string text, int? nodeId = null)
     {
         var ini = IniFile.Parse(text);
-        var od = new ObjectDictionary();
+        var od = new ObjectDictionary { SourceDocument = IniDocument.Parse(text) };
 
         if (ini.Find("Comments") is { } comments)
         {

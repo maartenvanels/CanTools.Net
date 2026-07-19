@@ -46,6 +46,13 @@ public sealed class OdVariable : OdEntry
     /// <summary>The ParameterValue text exactly as written, or null when absent.</summary>
     public string? ValueRaw { get; internal set; }
 
+    /// <summary>
+    /// True when <see cref="Value"/> was assigned through the API rather than read
+    /// from the file, so a writer formats it afresh instead of echoing
+    /// <see cref="ValueRaw"/>.
+    /// </summary>
+    internal bool ValueIsOverridden { get; set; }
+
     /// <summary>Non-standard scaling factor extension; 1 when absent.</summary>
     public double Factor { get; internal set; } = 1;
 

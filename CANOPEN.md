@@ -127,6 +127,29 @@ simulated in-process node, no hardware required — see
 [samples/CanTools.CanOpenSample](samples/CanTools.CanOpenSample)
 (`dotnet run --project samples/CanTools.CanOpenSample`).
 
+## Writing a DCF
+
+`DcfWriter` writes a dictionary loaded from an EDS/DCF back to a DCF, preserving the
+source file's structure, comments and ordering and layering in the commissioning
+data and configured values. Set a node id, bitrate and `ParameterValue`s, then write:
+
+```csharp
+var od = EdsReader.LoadFile("device.eds");
+od.NodeId = 0x0A;
+od.Bitrate = 500_000;
+od.SetValue("Producer heartbeat time", (OdValue)1000UL);   // by name (top-level)
+od.SetValue(0x1400, 1, (OdValue)0x40AUL);                   // by index/subindex (a member)
+
+DcfWriter.WriteFile(od, "node_0A.dcf");
+```
+
+An unchanged dictionary round-trips byte-for-byte. Values you did not touch are
+written back verbatim, so `$NODEID` expressions and hex notation survive; only values
+set via `SetValue` are reformatted. The node id is hex by default
+(`DcfWriterOptions.NodeIdFormat`). This is the load → modify → write workflow;
+authoring a dictionary from scratch is not supported (writing one without a source
+file throws).
+
 ## Why
 
 Research (July 2026) shows the .NET gap is real:
