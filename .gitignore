@@ -11,3 +11,6 @@ artifacts/
 CLAUDE.md
 .claude/
 .superpowers/
+
+# Local design/planning docs — not published
+docs/superpowers/
