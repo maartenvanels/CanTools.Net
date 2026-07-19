@@ -32,6 +32,14 @@ public sealed class SdoClient
         await _gate.WaitAsync(ct);
         try
         {
+            if (_options.EnableBlockTransfer)
+            {
+                if (await TryBlockUploadAsync(index, subIndex, ct) is { } blockValue)
+                {
+                    return blockValue;
+                }
+            }
+
             await SendAsync(new SdoUploadRequest(index, subIndex).ToBytes(), ct);
             var response = await ReceiveResponseAsync(index, subIndex, ct);
 
@@ -64,6 +72,14 @@ public sealed class SdoClient
         await _gate.WaitAsync(ct);
         try
         {
+            if (_options.EnableBlockTransfer && data.Length > 4)
+            {
+                if (await TryBlockDownloadAsync(index, subIndex, data, ct))
+                {
+                    return;
+                }
+            }
+
             if (data.Length <= 4)
             {
                 await SendAsync(
@@ -156,6 +172,155 @@ public sealed class SdoClient
             }
 
             toggle = !toggle;
+        }
+    }
+
+    private async Task<bool> TryBlockDownloadAsync(
+        ushort index, byte subIndex, byte[] data, CancellationToken ct)
+    {
+        // initiate: ccs=6, cs=0, s=1 (size), command 0xC2
+        var initiate = SdoFrame.BuildBlockInitiate(0xC2, index, subIndex, (uint)data.Length);
+        await SendAsync(initiate, ct);
+
+        SdoFrame response;
+        try
+        {
+            response = await ReceiveResponseAsync(index, subIndex, ct);
+        }
+        catch (SdoAbortException)
+        {
+            return false;   // server declined block transfer; caller falls back
+        }
+
+        if (response is not SdoBlockFrame)
+        {
+            throw new SdoProtocolException(
+                $"Expected a block-download initiate ack for 0x{index:X4}sub{subIndex:X}.");
+        }
+
+        var sequence = 0;
+        var lastSegmentCount = 0;
+
+        for (var offset = 0; offset < data.Length; offset += 7)
+        {
+            var count = Math.Min(7, data.Length - offset);
+            var isLast = offset + count >= data.Length;
+            sequence++;
+            lastSegmentCount = count;
+
+            var frame = new byte[8];
+            frame[0] = (byte)(sequence | (isLast ? 0x80 : 0));
+            data.AsSpan(offset, count).CopyTo(frame.AsSpan(1));
+            await SendAsync(frame, ct);
+
+            // Ack after the block fills up (blksize) or after the last segment.
+            if (isLast || sequence >= _options.BlockSize)
+            {
+                var ack = await ReceiveResponseAsync(index, subIndex, ct);
+                if (ack is not SdoBlockFrame { SubCommand: 2 })
+                {
+                    throw new SdoProtocolException(
+                        $"Expected a block segment ack for 0x{index:X4}sub{subIndex:X}.");
+                }
+
+                sequence = 0;
+            }
+        }
+
+        // end: ccs=6, cs=1, padding = 7 - bytes in the last segment
+        var padding = 7 - lastSegmentCount;
+        await SendAsync([(byte)(0xC0 | (padding << 2) | 0x01), 0, 0, 0, 0, 0, 0, 0], ct);
+
+        var endAck = await ReceiveResponseAsync(index, subIndex, ct);
+        if (endAck is not SdoBlockFrame)
+        {
+            throw new SdoProtocolException(
+                $"Expected a block-download end ack for 0x{index:X4}sub{subIndex:X}.");
+        }
+
+        return true;
+    }
+
+    private async Task<byte[]?> TryBlockUploadAsync(ushort index, byte subIndex, CancellationToken ct)
+    {
+        // initiate: ccs=5, cs=0, blksize in byte 4, command 0xA0
+        var initiate = SdoFrame.BuildBlockInitiate(0xA0, index, subIndex, 0);
+        initiate[4] = (byte)_options.BlockSize;
+        await SendAsync(initiate, ct);
+
+        SdoFrame response;
+        try
+        {
+            response = await ReceiveResponseAsync(index, subIndex, ct);
+        }
+        catch (SdoAbortException)
+        {
+            return null;   // server declined; caller falls back to normal upload
+        }
+
+        if (response is not SdoBlockFrame)
+        {
+            throw new SdoProtocolException(
+                $"Expected a block-upload initiate response for 0x{index:X4}sub{subIndex:X}.");
+        }
+
+        // start: ccs=5, cs=3, command 0xA3
+        await SendAsync([0xA3, 0, 0, 0, 0, 0, 0, 0], ct);
+
+        var reassembler = new SdoBlockReassembler();
+
+        while (true)
+        {
+            var frame = await ReceiveRawAsync(ct);   // raw: data segments carry no command specifier
+            reassembler.AddSegment(frame.Data);
+            var lastInRound = (frame.Data[0] & 0x80) != 0;
+
+            if (lastInRound)
+            {
+                var ackseq = frame.Data[0] & 0x7F;
+                reassembler.Acknowledge(ackseq);
+                // segment ack: ccs=5, cs=2, ackseq in byte 1, blksize in byte 2
+                await SendAsync([0xA2, (byte)ackseq, (byte)_options.BlockSize, 0, 0, 0, 0, 0], ct);
+
+                // end frame: carrier side, IsEnd
+                var end = await ReceiveResponseAsync(index, subIndex, ct);
+                if (end is SdoBlockFrame { IsEnd: true } endFrame)
+                {
+                    reassembler.TrimTail(endFrame.PaddingCount);
+                    // end ack: ccs=5, cs=1, command 0xA1
+                    await SendAsync([0xA1, 0, 0, 0, 0, 0, 0, 0], ct);
+                    return reassembler.Data.ToArray();
+                }
+
+                throw new SdoProtocolException(
+                    $"Expected a block-upload end frame for 0x{index:X4}sub{subIndex:X}.");
+            }
+        }
+    }
+
+    // Receives the next frame from our server without SDO command parsing (block
+    // data segments have no command specifier). Applies the same id filter and timeout.
+    private async Task<CanFrame> ReceiveRawAsync(CancellationToken ct)
+    {
+        using var timeout = new CancellationTokenSource(_options.Timeout);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
+
+        while (true)
+        {
+            CanFrame frame;
+            try
+            {
+                frame = await _channel.ReceiveAsync(linked.Token);
+            }
+            catch (OperationCanceledException) when (timeout.IsCancellationRequested && !ct.IsCancellationRequested)
+            {
+                throw new SdoTimeoutException(0, 0);
+            }
+
+            if (frame.Id == ResponseCobId)
+            {
+                return frame;
+            }
         }
     }
 

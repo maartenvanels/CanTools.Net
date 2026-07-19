@@ -142,6 +142,16 @@ public abstract record SdoFrame
         return frame;
     }
 
+    // Builds a block-transfer initiate frame: command byte, multiplexer, and a
+    // uint32 in bytes 4-7 (the announced size for downloads; zero for uploads).
+    internal static byte[] BuildBlockInitiate(byte command, ushort index, byte subindex, uint size)
+    {
+        var frame = BuildHeader(command, index, subindex);
+        BinaryPrimitives.WriteUInt32LittleEndian(frame.AsSpan(4), size);
+
+        return frame;
+    }
+
     private protected static byte[] BuildSegment(byte baseCommand, bool toggle, byte[] payload, bool isLast)
     {
         if (payload.Length > 7)
