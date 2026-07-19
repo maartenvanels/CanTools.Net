@@ -175,6 +175,9 @@ public sealed class SdoClient
         }
     }
 
+    // v1 scope: a short/partial segment ack (the server acknowledging fewer
+    // segments than were sent) is treated as ordinary round-boundary progress.
+    // Retransmission of segments the server considers dropped is not implemented.
     private async Task<bool> TryBlockDownloadAsync(
         ushort index, byte subIndex, byte[] data, CancellationToken ct)
     {
@@ -192,11 +195,18 @@ public sealed class SdoClient
             return false;   // server declined block transfer; caller falls back
         }
 
-        if (response is not SdoBlockFrame)
+        if (response is not SdoBlockFrame initiateAck)
         {
             throw new SdoProtocolException(
                 $"Expected a block-download initiate ack for 0x{index:X4}sub{subIndex:X}.");
         }
+
+        // CiA 301: the SERVER dictates the effective blksize for a block download,
+        // announced in byte 4 of the initiate ack; the client's own proposal
+        // (SdoClientOptions.BlockSize) is only a starting offer.
+        var blockSize = initiateAck.Data.Length > 4 && initiateAck.Data[4] > 0
+            ? initiateAck.Data[4]
+            : _options.BlockSize;
 
         var sequence = 0;
         var lastSegmentCount = 0;
@@ -214,13 +224,19 @@ public sealed class SdoClient
             await SendAsync(frame, ct);
 
             // Ack after the block fills up (blksize) or after the last segment.
-            if (isLast || sequence >= _options.BlockSize)
+            if (isLast || sequence >= blockSize)
             {
-                var ack = await ReceiveResponseAsync(index, subIndex, ct);
-                if (ack is not SdoBlockFrame { SubCommand: 2 })
+                var ackResponse = await ReceiveResponseAsync(index, subIndex, ct);
+                if (ackResponse is not SdoBlockFrame { SubCommand: 2 } ack)
                 {
                     throw new SdoProtocolException(
                         $"Expected a block segment ack for 0x{index:X4}sub{subIndex:X}.");
+                }
+
+                // The server may renegotiate blksize for the next round (byte 2 of the ack).
+                if (ack.Data.Length > 2 && ack.Data[2] > 0)
+                {
+                    blockSize = ack.Data[2];
                 }
 
                 sequence = 0;
@@ -241,6 +257,16 @@ public sealed class SdoClient
         return true;
     }
 
+    // A block upload may span several rounds of up to blksize segments each: the
+    // server pauses after every round for a segment ack, and only sends the end
+    // frame once the round containing its last-of-transfer segment is acked.
+    // SdoBlockReassembler.Acknowledge's return value is what tells us which case
+    // we're in — false means more rounds follow, true means the transfer is done
+    // and the round buffer holds its final (possibly short) contents.
+    //
+    // v1 scope: a short/partial segment (fewer than blksize received before the
+    // server moves on) is treated as ordinary round-boundary progress.
+    // Retransmission of segments the server considers dropped is not implemented.
     private async Task<byte[]?> TryBlockUploadAsync(ushort index, byte subIndex, CancellationToken ct)
     {
         // initiate: ccs=5, cs=0, blksize in byte 4, command 0xA0
@@ -268,33 +294,56 @@ public sealed class SdoClient
         await SendAsync([0xA3, 0, 0, 0, 0, 0, 0, 0], ct);
 
         var reassembler = new SdoBlockReassembler();
+        var blockSize = _options.BlockSize;
 
         while (true)
         {
             var frame = await ReceiveRawAsync(ct);   // raw: data segments carry no command specifier
-            reassembler.AddSegment(frame.Data);
-            var lastInRound = (frame.Data[0] & 0x80) != 0;
 
-            if (lastInRound)
+            // A genuine data segment's sequence number is 1-127 (0 is invalid), so
+            // its command byte is never exactly 0x80. An abort's command byte is
+            // always exactly 0x80 (CiA 301 does not set any of its lower bits), so
+            // this check cannot collide with a real segment, including one that
+            // carries the last-of-transfer bit (which starts at 0x81).
+            if (frame.Data.Length > 0 && frame.Data[0] == 0x80)
             {
-                var ackseq = frame.Data[0] & 0x7F;
-                reassembler.Acknowledge(ackseq);
-                // segment ack: ccs=5, cs=2, ackseq in byte 1, blksize in byte 2
-                await SendAsync([0xA2, (byte)ackseq, (byte)_options.BlockSize, 0, 0, 0, 0, 0], ct);
-
-                // end frame: carrier side, IsEnd
-                var end = await ReceiveResponseAsync(index, subIndex, ct);
-                if (end is SdoBlockFrame { IsEnd: true } endFrame)
-                {
-                    reassembler.TrimTail(endFrame.PaddingCount);
-                    // end ack: ccs=5, cs=1, command 0xA1
-                    await SendAsync([0xA1, 0, 0, 0, 0, 0, 0, 0], ct);
-                    return reassembler.Data.ToArray();
-                }
-
-                throw new SdoProtocolException(
-                    $"Expected a block-upload end frame for 0x{index:X4}sub{subIndex:X}.");
+                var abort = (SdoAbort)SdoFrame.Parse(SdoDirection.Response, frame.Data);
+                throw new SdoAbortException(abort.Index, abort.Subindex, abort.Code);
             }
+
+            reassembler.AddSegment(frame.Data);
+
+            var sequence = frame.Data[0] & 0x7F;
+            var lastOfTransfer = (frame.Data[0] & 0x80) != 0;
+
+            // A round ends when the negotiated blksize is reached or the server
+            // marks its final segment (possibly in a short, final round).
+            if (!lastOfTransfer && sequence < blockSize)
+            {
+                continue;
+            }
+
+            var finished = reassembler.Acknowledge(sequence);
+            // segment ack: ccs=5, cs=2, ackseq in byte 1, blksize in byte 2
+            await SendAsync([0xA2, (byte)sequence, (byte)blockSize, 0, 0, 0, 0, 0], ct);
+
+            if (!finished)
+            {
+                continue;   // more rounds follow
+            }
+
+            // end frame: carrier side, IsEnd
+            var end = await ReceiveResponseAsync(index, subIndex, ct);
+            if (end is SdoBlockFrame { IsEnd: true } endFrame)
+            {
+                reassembler.TrimTail(endFrame.PaddingCount);
+                // end ack: ccs=5, cs=1, command 0xA1
+                await SendAsync([0xA1, 0, 0, 0, 0, 0, 0, 0], ct);
+                return reassembler.Data.ToArray();
+            }
+
+            throw new SdoProtocolException(
+                $"Expected a block-upload end frame for 0x{index:X4}sub{subIndex:X}.");
         }
     }
 
