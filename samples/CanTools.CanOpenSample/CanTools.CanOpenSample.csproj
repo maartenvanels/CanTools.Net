@@ -12,4 +12,8 @@
     <ProjectReference Include="..\..\src\CanTools\CanTools.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="VirtualNode.eds" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
