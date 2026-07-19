@@ -88,13 +88,76 @@ public sealed class SdoClient
         }
     }
 
-    // Filled in by Task 7.
-    private Task<byte[]> UploadSegmentedAsync(ushort index, byte subIndex, CancellationToken ct) =>
-        throw new NotSupportedException("Segmented upload is added in Task 7.");
+    private async Task<byte[]> UploadSegmentedAsync(ushort index, byte subIndex, CancellationToken ct)
+    {
+        var data = new List<byte>();
+        var toggle = false;
 
-    private Task DownloadSegmentedAsync(
-        ushort index, byte subIndex, byte[] data, CancellationToken ct) =>
-        throw new NotSupportedException("Segmented download is added in Task 7.");
+        while (true)
+        {
+            await SendAsync(new SdoUploadSegmentRequest(toggle).ToBytes(), ct);
+            var response = await ReceiveResponseAsync(index, subIndex, ct);
+
+            if (response is not SdoUploadSegmentResponse segment)
+            {
+                throw new SdoProtocolException(
+                    $"Expected an upload segment for 0x{index:X4}sub{subIndex:X}, "
+                    + $"got {response.GetType().Name}.");
+            }
+
+            if (segment.Toggle != toggle)
+            {
+                throw new SdoProtocolException(
+                    $"SDO toggle bit mismatch on 0x{index:X4}sub{subIndex:X}.");
+            }
+
+            data.AddRange(segment.Data);
+
+            if (segment.IsLast)
+            {
+                return data.ToArray();
+            }
+
+            toggle = !toggle;
+        }
+    }
+
+    private async Task DownloadSegmentedAsync(
+        ushort index, byte subIndex, byte[] data, CancellationToken ct)
+    {
+        await SendAsync(
+            new SdoDownloadRequest(index, subIndex) { SizeSpecified = true, Size = (uint)data.Length }.ToBytes(),
+            ct);
+        var initiate = await ReceiveResponseAsync(index, subIndex, ct);
+
+        if (initiate is not SdoDownloadResponse)
+        {
+            throw new SdoProtocolException(
+                $"Expected a download initiate ack for 0x{index:X4}sub{subIndex:X}, "
+                + $"got {initiate.GetType().Name}.");
+        }
+
+        var toggle = false;
+
+        for (var offset = 0; offset < data.Length; offset += 7)
+        {
+            var count = Math.Min(7, data.Length - offset);
+            var isLast = offset + count >= data.Length;
+            var payload = data[offset..(offset + count)];
+
+            await SendAsync(
+                new SdoDownloadSegmentRequest(toggle, payload, isLast).ToBytes(), ct);
+            var ack = await ReceiveResponseAsync(index, subIndex, ct);
+
+            if (ack is not SdoDownloadSegmentResponse segmentAck || segmentAck.Toggle != toggle)
+            {
+                throw new SdoProtocolException(
+                    $"Bad download segment ack on 0x{index:X4}sub{subIndex:X}.");
+            }
+
+            toggle = !toggle;
+        }
+    }
 
     private async Task SendAsync(byte[] payload, CancellationToken ct) =>
         await _channel.SendAsync(new CanFrame(RequestCobId, payload), ct);
