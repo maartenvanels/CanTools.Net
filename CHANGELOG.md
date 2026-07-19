@@ -4,6 +4,28 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and from 1.0.0 onward
 this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-07-19
+
+### Added
+
+- **Live CANopen SDO client (`SdoClient`).** Reads (upload) and writes (download)
+  a remote node's object dictionary over the new dependency-free `ICanChannel`
+  transport abstraction, handling expedited, segmented and block transfer
+  transparently, with automatic fallback from block to segmented and a typed
+  value helper (`SdoValueCodec`, bytes ↔ `OdValue` by CiA 301 data type).
+  Responses are correlated by index and subindex. Behavior is verified against
+  SDO test vectors learned from (not copied out of) the Apache-2.0
+  [lely-core](https://gitlab.com/lely_industries/lely-core) stack; see
+  `THIRD-PARTY-NOTICES.txt`.
+- **`CanTools.Transport` namespace.** `CanFrame` and `ICanChannel` — a minimal,
+  dependency-free seam between the codec layer and a CAN bus. Bring your own
+  channel; the core ships none, so it stays dependency-free.
+- **Samples.** `samples/CanTools.CanOpenSample` runs the SDO client end to end
+  against an in-process simulated node (no hardware), and the CanKit bridge
+  sample gains a `CanKitCanChannel` `ICanChannel` adapter.
+- **Optional lely-core loopback interop test tier** (Linux/vcan, opt-in via
+  `CANTOOLS_INTEROP=1`); skipped in the default cross-platform build.
+
 ## [1.0.0] - 2026-07-17
 
 First stable release. The public API is now covered by semantic versioning:
