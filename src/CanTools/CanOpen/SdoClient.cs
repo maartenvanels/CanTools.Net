@@ -124,6 +124,11 @@ public sealed class SdoClient
 
             var parsed = SdoFrame.Parse(SdoDirection.Response, frame.Data);
 
+            if (Multiplexer(parsed) is { } mux && (mux.Index != index || mux.Subindex != subIndex))
+            {
+                continue;   // stale/unrelated response (e.g. a late reply to a timed-out transfer)
+            }
+
             if (parsed is SdoAbort abort)
             {
                 throw new SdoAbortException(abort.Index, abort.Subindex, abort.Code);
@@ -131,5 +136,17 @@ public sealed class SdoClient
 
             return parsed;
         }
+
+        // Extracts the (index, subindex) multiplexer when the frame carries one.
+        // Segment responses and block data frames have no multiplexer of their own
+        // and must pass through untouched — they're correlated by protocol state,
+        // not by index/subindex, in the segmented/block transfer code (Tasks 7-8).
+        static (ushort Index, byte Subindex)? Multiplexer(SdoFrame frame) => frame switch
+        {
+            SdoUploadResponse r => (r.Index, r.Subindex),
+            SdoDownloadResponse r => (r.Index, r.Subindex),
+            SdoAbort a => (a.Index, a.Subindex),
+            _ => null,
+        };
     }
 }

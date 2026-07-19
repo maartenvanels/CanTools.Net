@@ -79,4 +79,20 @@ public class SdoClientExpeditedTests
 
         Assert.Equal(new byte[] { 0x99, 0x00, 0x00, 0x00 }, value);
     }
+
+    [Fact]
+    public async Task Stale_response_for_a_different_index_is_ignored()
+    {
+        var channel = new InMemoryCanChannel();
+        channel.Enqueue(
+            // stale: a late reply to some earlier, timed-out transfer for 0x2222sub0, value 0x99
+            CanFrame.Classic(0x58A, Convert.FromHexString("4322220099000000")),
+            // the real reply to this transfer, for 0x1018sub1, value 0x04
+            CanFrame.Classic(0x58A, Convert.FromHexString("4318100104000000")));
+        var client = new SdoClient(channel, NodeId);
+
+        var value = await client.UploadAsync(0x1018, 1);
+
+        Assert.Equal(new byte[] { 0x04, 0x00, 0x00, 0x00 }, value);
+    }
 }
