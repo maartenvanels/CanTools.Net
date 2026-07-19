@@ -1,6 +1,6 @@
 namespace CanTools.CanOpen;
 
-/// <summary>Tuning for <see cref="SdoClient"/>.</summary>
+/// <summary>Tuning for <c>SdoClient</c>.</summary>
 public sealed class SdoClientOptions
 {
     /// <summary>How long to wait for each response frame before timing out.</summary>
