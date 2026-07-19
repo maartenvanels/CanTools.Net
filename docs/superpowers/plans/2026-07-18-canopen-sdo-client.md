@@ -13,7 +13,7 @@
 - **Target framework:** `net8.0`, `Nullable` enable, `ImplicitUsings` enable — matches `src/CanTools/CanTools.csproj`.
 - **Core stays dependency-free:** no new `PackageReference` in `src/CanTools/CanTools.csproj`. `ICanChannel`, `SdoClient` and all SDO types are pure BCL.
 - **License discipline:** lely-core is Apache 2.0; CanTools.Net is MIT. Do **not** copy lely C source. Every test file whose vectors are learned from lely carries a header comment attributing lely-core (Apache 2.0) and the specific lely test it mirrors; add one line to `THIRD-PARTY-NOTICES.txt`.
-- **Namespaces follow folders:** `src/CanTools/Bus/*` → `CanTools.Bus`; `src/CanTools/CanOpen/*` → `CanTools.CanOpen`.
+- **Namespaces follow folders:** `src/CanTools/Transport/*` → `CanTools.Transport`; `src/CanTools/CanOpen/*` → `CanTools.CanOpen`.
 - **No published package for the adapter in v1:** release set stays `CanTools.Net` + `CanTools.Net.Cli`. The CanKit adapter is a project/sample only.
 - **Test style:** mirror `tests/CanTools.Tests/SdoFrameTests.cs` — hex vectors via `Convert.FromHexString`, one behavior per `[Fact]`, a source-citation comment per vector.
 - **Commit cadence:** one commit per task, on branch `feat/canopen-sdo-client` (branched from `spec/canopen-sdo-client`).
@@ -23,8 +23,8 @@
 ## File Structure
 
 **Create (core):**
-- `src/CanTools/Bus/CanFrame.cs` — `CanTools.Bus.CanFrame` readonly struct (Id, Data, IsExtended, IsFd).
-- `src/CanTools/Bus/ICanChannel.cs` — `CanTools.Bus.ICanChannel` (SendAsync / ReceiveAsync).
+- `src/CanTools/Transport/CanFrame.cs` — `CanTools.Transport.CanFrame` readonly struct (Id, Data, IsExtended, IsFd).
+- `src/CanTools/Transport/ICanChannel.cs` — `CanTools.Transport.ICanChannel` (SendAsync / ReceiveAsync).
 - `src/CanTools/CanOpen/SdoBlockReassembler.cs` — internal block-round accumulator, extracted from the interpreter.
 - `src/CanTools/CanOpen/SdoExceptions.cs` — `SdoException`, `SdoTimeoutException`, `SdoAbortException`, `SdoProtocolException`.
 - `src/CanTools/CanOpen/SdoClientOptions.cs` — options record.
@@ -35,8 +35,8 @@
 - `src/CanTools/CanOpen/CanOpenLogInterpreter.cs` — delegate block reassembly to `SdoBlockReassembler`.
 
 **Create (tests):**
-- `tests/CanTools.Tests/Bus/InMemoryCanChannel.cs` — scripted fake channel.
-- `tests/CanTools.Tests/Bus/InMemoryCanChannelTests.cs`
+- `tests/CanTools.Tests/Transport/InMemoryCanChannel.cs` — scripted fake channel.
+- `tests/CanTools.Tests/Transport/InMemoryCanChannelTests.cs`
 - `tests/CanTools.Tests/CanOpen/SdoBlockReassemblerTests.cs`
 - `tests/CanTools.Tests/CanOpen/SdoClientExpeditedTests.cs`
 - `tests/CanTools.Tests/CanOpen/SdoClientSegmentedTests.cs`
@@ -52,16 +52,16 @@
 ## Task 1: CanFrame struct
 
 **Files:**
-- Create: `src/CanTools/Bus/CanFrame.cs`
+- Create: `src/CanTools/Transport/CanFrame.cs`
 - Test: covered indirectly by Task 3 (`InMemoryCanChannelTests`); no dedicated test — a plain data struct with no logic.
 
 **Interfaces:**
-- Produces: `readonly struct CanTools.Bus.CanFrame` with `uint Id`, `byte[] Data`, `bool IsExtended`, `bool IsFd`; constructor `CanFrame(uint id, byte[] data, bool isExtended = false, bool isFd = false)`; static `CanFrame Classic(uint id, byte[] data)`.
+- Produces: `readonly struct CanTools.Transport.CanFrame` with `uint Id`, `byte[] Data`, `bool IsExtended`, `bool IsFd`; constructor `CanFrame(uint id, byte[] data, bool isExtended = false, bool isFd = false)`; static `CanFrame Classic(uint id, byte[] data)`.
 
 - [ ] **Step 1: Write the struct**
 
 ```csharp
-namespace CanTools.Bus;
+namespace CanTools.Transport;
 
 /// <summary>
 /// A single CAN frame as this library sees it: a frame id and its data bytes.
@@ -99,7 +99,7 @@ Expected: Build succeeded, 0 errors.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/CanTools/Bus/CanFrame.cs
+git add src/CanTools/Transport/CanFrame.cs
 git commit -m "feat(bus): add CanFrame transport struct"
 ```
 
@@ -108,16 +108,16 @@ git commit -m "feat(bus): add CanFrame transport struct"
 ## Task 2: ICanChannel interface
 
 **Files:**
-- Create: `src/CanTools/Bus/ICanChannel.cs`
+- Create: `src/CanTools/Transport/ICanChannel.cs`
 
 **Interfaces:**
-- Consumes: `CanTools.Bus.CanFrame` (Task 1).
-- Produces: `interface CanTools.Bus.ICanChannel` with `ValueTask SendAsync(CanFrame, CancellationToken)` and `ValueTask<CanFrame> ReceiveAsync(CancellationToken)`.
+- Consumes: `CanTools.Transport.CanFrame` (Task 1).
+- Produces: `interface CanTools.Transport.ICanChannel` with `ValueTask SendAsync(CanFrame, CancellationToken)` and `ValueTask<CanFrame> ReceiveAsync(CancellationToken)`.
 
 - [ ] **Step 1: Write the interface**
 
 ```csharp
-namespace CanTools.Bus;
+namespace CanTools.Transport;
 
 /// <summary>
 /// The single seam between the codec layer and a CAN bus. Implementations bridge
@@ -145,7 +145,7 @@ Expected: Build succeeded.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/CanTools/Bus/ICanChannel.cs
+git add src/CanTools/Transport/ICanChannel.cs
 git commit -m "feat(bus): add ICanChannel abstraction"
 ```
 
@@ -154,8 +154,8 @@ git commit -m "feat(bus): add ICanChannel abstraction"
 ## Task 3: InMemoryCanChannel test double
 
 **Files:**
-- Create: `tests/CanTools.Tests/Bus/InMemoryCanChannel.cs`
-- Test: `tests/CanTools.Tests/Bus/InMemoryCanChannelTests.cs`
+- Create: `tests/CanTools.Tests/Transport/InMemoryCanChannel.cs`
+- Test: `tests/CanTools.Tests/Transport/InMemoryCanChannelTests.cs`
 
 **Interfaces:**
 - Consumes: `CanFrame`, `ICanChannel`.
@@ -166,9 +166,9 @@ Rationale: SDO exchanges are deterministic ping-pong, so pre-enqueuing all serve
 - [ ] **Step 1: Write the failing test**
 
 ```csharp
-using CanTools.Bus;
+using CanTools.Transport;
 
-namespace CanTools.Tests.Bus;
+namespace CanTools.Tests.Transport;
 
 public class InMemoryCanChannelTests
 {
@@ -212,9 +212,9 @@ Expected: FAIL — `InMemoryCanChannel` does not exist.
 - [ ] **Step 3: Write the implementation**
 
 ```csharp
-using CanTools.Bus;
+using CanTools.Transport;
 
-namespace CanTools.Tests.Bus;
+namespace CanTools.Tests.Transport;
 
 /// <summary>
 /// A scripted <see cref="ICanChannel"/> for driving the SDO client in tests.
@@ -268,7 +268,7 @@ Expected: PASS (3 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tests/CanTools.Tests/Bus/InMemoryCanChannel.cs tests/CanTools.Tests/Bus/InMemoryCanChannelTests.cs
+git add tests/CanTools.Tests/Transport/InMemoryCanChannel.cs tests/CanTools.Tests/Transport/InMemoryCanChannelTests.cs
 git commit -m "test(bus): add scripted InMemoryCanChannel"
 ```
 
@@ -620,7 +620,7 @@ git commit -m "feat(canopen): add SDO client exceptions and options"
 - Test: `tests/CanTools.Tests/CanOpen/SdoClientExpeditedTests.cs`
 
 **Interfaces:**
-- Consumes: `ICanChannel`, `CanFrame` (`CanTools.Bus`); `SdoFrame` family, `SdoClientOptions`, SDO exceptions (`CanTools.CanOpen`); `SdoBlockReassembler` (Task 8).
+- Consumes: `ICanChannel`, `CanFrame` (`CanTools.Transport`); `SdoFrame` family, `SdoClientOptions`, SDO exceptions (`CanTools.CanOpen`); `SdoBlockReassembler` (Task 8).
 - Produces:
   - `sealed class SdoClient` — ctor `(ICanChannel channel, byte nodeId, SdoClientOptions? options = null)`.
   - `Task<byte[]> UploadAsync(ushort index, byte subIndex, CancellationToken ct = default)`.
@@ -630,9 +630,9 @@ git commit -m "feat(canopen): add SDO client exceptions and options"
 - [ ] **Step 1: Write the failing tests**
 
 ```csharp
-using CanTools.Bus;
+using CanTools.Transport;
 using CanTools.CanOpen;
-using CanTools.Tests.Bus;
+using CanTools.Tests.Transport;
 
 namespace CanTools.Tests.CanOpen;
 
@@ -724,7 +724,7 @@ Expected: FAIL — `SdoClient` does not exist.
 - [ ] **Step 3: Write the implementation (expedited paths; segmented/block throw for now)**
 
 ```csharp
-using CanTools.Bus;
+using CanTools.Transport;
 
 namespace CanTools.CanOpen;
 
@@ -888,9 +888,9 @@ git commit -m "feat(canopen): add SdoClient expedited upload and download"
 - [ ] **Step 1: Write the failing tests**
 
 ```csharp
-using CanTools.Bus;
+using CanTools.Transport;
 using CanTools.CanOpen;
-using CanTools.Tests.Bus;
+using CanTools.Tests.Transport;
 
 namespace CanTools.Tests.CanOpen;
 
@@ -1057,9 +1057,9 @@ Wire summary (CiA 301, carrier-side commands via `SdoBlockFrame`): client block-
 - [ ] **Step 1: Write the failing test (block download happy path)**
 
 ```csharp
-using CanTools.Bus;
+using CanTools.Transport;
 using CanTools.CanOpen;
-using CanTools.Tests.Bus;
+using CanTools.Tests.Transport;
 
 namespace CanTools.Tests.CanOpen;
 
@@ -1603,7 +1603,7 @@ No unit test — the sample project is not part of `CanTools.Tests` and depends 
 - [ ] **Step 1: Write the adapter**
 
 ```csharp
-using CanTools.Bus;
+using CanTools.Transport;
 using CanKit.Abstractions.API.Can.Definitions;
 
 namespace CanTools.CanKitBridge;
@@ -1619,13 +1619,13 @@ public sealed class CanKitCanChannel : ICanChannel
 
     public CanKitCanChannel(ICanBus bus) => _bus = bus;
 
-    public ValueTask SendAsync(CanTools.Bus.CanFrame frame, CancellationToken cancellationToken = default)
+    public ValueTask SendAsync(CanTools.Transport.CanFrame frame, CancellationToken cancellationToken = default)
     {
         _bus.Transmit(FrameBridge.ToCanKit(frame.Id, frame.Data));
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask<CanTools.Bus.CanFrame> ReceiveAsync(CancellationToken cancellationToken = default)
+    public ValueTask<CanTools.Transport.CanFrame> ReceiveAsync(CancellationToken cancellationToken = default)
     {
         // Poll the CanKit bus until a frame arrives or the token cancels; mirrors the
         // synchronous Receive polling the sample already uses (see git log 5d092fa).
@@ -1634,7 +1634,7 @@ public sealed class CanKitCanChannel : ICanChannel
             if (_bus.Receive(out var kitFrame))
             {
                 var (id, payload) = FrameBridge.FromCanKit(kitFrame);
-                return ValueTask.FromResult(new CanTools.Bus.CanFrame(id, payload));
+                return ValueTask.FromResult(new CanTools.Transport.CanFrame(id, payload));
             }
         }
 
