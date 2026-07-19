@@ -82,11 +82,15 @@ internal sealed partial class IniDocument
 
             if (after >= 0)
             {
-                _sections[after].Lines.Add("");   // a blank line separates the new section
+                // A single blank line before it, and one of its own so it stays
+                // separated from the section that follows.
+                EnsureSingleTrailingBlank(_sections[after].Lines);
+                section.Lines.Add("");
                 _sections.Insert(after + 1, section);
             }
             else
             {
+                EnsureSingleTrailingBlank(_sections.Count > 0 ? _sections[^1].Lines : _preamble);
                 _sections.Add(section);
             }
         }
@@ -166,6 +170,18 @@ internal sealed partial class IniDocument
         }
 
         lines.Insert(insertAt, $"{key}={value}");
+    }
+
+    // Trims any trailing blank lines to exactly one, so an inserted section is
+    // separated from its neighbour by a single blank line.
+    private static void EnsureSingleTrailingBlank(List<string> lines)
+    {
+        while (lines.Count > 0 && lines[^1].Trim().Length == 0)
+        {
+            lines.RemoveAt(lines.Count - 1);
+        }
+
+        lines.Add("");
     }
 
     private static bool IsKeyLine(string raw, string key)

@@ -64,9 +64,9 @@ public class IniDocumentTests
         document.UpsertInSection("DeviceComissioning", "NodeID", "0x0A");
 
         var text = document.ToString();
-        Assert.Contains("[DeviceComissioning]\nNodeID=0x0A", text);
-        // it lands right after the [DeviceInfo] block, not before it
-        Assert.True(text.IndexOf("[DeviceInfo]") < text.IndexOf("[DeviceComissioning]"));
+        // right after [DeviceInfo], separated by a single blank line on each side
+        Assert.Contains(
+            "VendorName=Acme\n\n[DeviceComissioning]\nNodeID=0x0A\n\n[1000]", text);
     }
 
     [Fact]
