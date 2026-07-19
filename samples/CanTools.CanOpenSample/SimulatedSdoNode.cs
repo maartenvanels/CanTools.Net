@@ -30,6 +30,54 @@ internal sealed class SimulatedSdoNode : ICanChannel
         _dictionary = dictionary;
     }
 
+    /// <summary>
+    /// Builds a node whose memory is seeded from the default values in an object
+    /// dictionary: every variable that has a default is stored as the raw bytes an
+    /// SDO transfer would move. Entries without a default (or that cannot be encoded)
+    /// are left absent, so reading them yields an "object does not exist" abort.
+    /// </summary>
+    public static SimulatedSdoNode SeededFrom(byte nodeId, ObjectDictionary dictionary)
+    {
+        var store = new Dictionary<(ushort, byte), byte[]>();
+
+        foreach (var entry in dictionary.Entries)
+        {
+            switch (entry)
+            {
+                case OdVariable variable:
+                    Seed(store, variable);
+                    break;
+                case OdComposite composite:
+                    foreach (var member in composite.Members)
+                    {
+                        Seed(store, member);
+                    }
+
+                    break;
+            }
+        }
+
+        return new SimulatedSdoNode(nodeId, store);
+    }
+
+    private static void Seed(Dictionary<(ushort, byte), byte[]> store, OdVariable variable)
+    {
+        if (variable.Default is not { } value)
+        {
+            return;
+        }
+
+        try
+        {
+            store[((ushort)variable.Index, (byte)variable.Subindex)] =
+                SdoValueCodec.Encode(value, variable.DataType);
+        }
+        catch (EncodeException)
+        {
+            // A default that does not fit its declared type is left unseeded.
+        }
+    }
+
     private uint RequestCobId => 0x600u + _nodeId;
 
     private uint ResponseCobId => 0x580u + _nodeId;
@@ -125,6 +173,14 @@ internal sealed class SimulatedSdoNode : ICanChannel
 
     private void BeginDownload(SdoDownloadRequest request)
     {
+        // Store (0x1010) and restore (0x1011) are commands, not storage: acknowledge
+        // the signature write without keeping it, as a real device would act on it.
+        if (request.Index is CanOpenObjects.StoreParameters or CanOpenObjects.RestoreDefaultParameters)
+        {
+            Reply(new SdoDownloadResponse(request.Index, request.Subindex).ToBytes());
+            return;
+        }
+
         if (request.IsExpedited)
         {
             _dictionary[(request.Index, request.Subindex)] = request.ExpeditedData!;

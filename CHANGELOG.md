@@ -4,6 +4,36 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and from 1.0.0 onward
 this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Dictionary-driven SDO reads and writes.** `SdoClient.UploadAsync` /
+  `DownloadAsync` overloads that take an `ObjectDictionary` (loaded from an
+  EDS/DCF) and an entry — by name, by index, or as an `OdVariable` — resolve the
+  index, subindex and CiA 301 data type from the dictionary, so calling code no
+  longer repeats raw indices and type codes. See `CANOPEN.md`.
+- **Standard SDO commands.** `SdoClient.StoreParametersAsync` (0x1010, "save") and
+  `RestoreDefaultParametersAsync` (0x1011, "load"), each addressing a
+  `CanOpenParameterGroup` (all/communication/application).
+- **`CanOpenObjects`** — named constants for the standard CiA 301
+  communication-profile object indices (`DeviceType`, `ManufacturerDeviceName`,
+  `StoreParameters`, `IdentityObject`, …).
+- **DCF writer (`DcfWriter`).** Writes an `ObjectDictionary` loaded from an EDS/DCF
+  back to a DCF, preserving the source file's comments, ordering and unknown keys and
+  layering in the commissioning data and configured `ParameterValue`s. An unchanged
+  dictionary round-trips byte-for-byte; untouched values (including `$NODEID`
+  expressions) are echoed verbatim. New `ObjectDictionary.SetValue` and public
+  `NodeId`/`Bitrate` setters drive it. See `CANOPEN.md`.
+
+### Changed
+
+- **`samples/CanTools.CanOpenSample`** now loads its object dictionary from a
+  bundled `VirtualNode.eds`, seeds the simulated node from the EDS defaults, and
+  reads/writes/programs it by parameter name. Pass a path to a real vendor EDS to
+  list and read its parameters (`dotnet run --project
+  samples/CanTools.CanOpenSample -- path/to/device.eds`).
+
 ## [1.1.0] - 2026-07-19
 
 ### Added

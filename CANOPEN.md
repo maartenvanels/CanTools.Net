@@ -92,6 +92,32 @@ await client.DownloadAsync(0x2000, 0, [0x2A, 0x00, 0x00, 0x00]);        // write
 uint deviceType = (uint)(await client.UploadAsync(0x1000, 0, CanOpenDataType.Unsigned32)).ToUInt64();
 ```
 
+Give the client an `ObjectDictionary` (loaded from the device's EDS/DCF) and it
+takes each entry's index, subindex and CiA 301 data type from there, so calls name
+a parameter instead of spelling out raw indices and type codes:
+
+```csharp
+var od = EdsReader.LoadFile("device.eds", nodeId: 0x0A);
+
+OdValue deviceType = await client.UploadAsync(od, "Device type");       // by name
+OdValue param      = await client.UploadAsync(od, 0x2000);              // by index
+await client.DownloadAsync(od, "Sample parameter", (OdValue)1234UL);    // write by name
+```
+
+Parameter names are vendor-specific, so read across arbitrary EDS files by index
+(the standard 0x1000/0x1008 are universal, and `CanOpenObjects` names them);
+names are handy when you author the dictionary yourself. There are matching
+`OdVariable` overloads for when you already hold the entry.
+
+The standard save/restore commands are one call each — they write the CiA 301
+"save"/"load" signature to 0x1010/0x1011:
+
+```csharp
+await client.DownloadAsync(od, "Sample parameter", (OdValue)1234UL);
+await client.StoreParametersAsync();               // persist (0x1010, "save")
+await client.RestoreDefaultParametersAsync(CanOpenParameterGroup.Communication);
+```
+
 Expedited, segmented and block transfers are handled transparently; set
 `SdoClientOptions.EnableBlockTransfer` to attempt block transfer with automatic
 fallback to segmented.
@@ -100,6 +126,29 @@ For a runnable end-to-end tour — reading and writing an object dictionary over
 simulated in-process node, no hardware required — see
 [samples/CanTools.CanOpenSample](samples/CanTools.CanOpenSample)
 (`dotnet run --project samples/CanTools.CanOpenSample`).
+
+## Writing a DCF
+
+`DcfWriter` writes a dictionary loaded from an EDS/DCF back to a DCF, preserving the
+source file's structure, comments and ordering and layering in the commissioning
+data and configured values. Set a node id, bitrate and `ParameterValue`s, then write:
+
+```csharp
+var od = EdsReader.LoadFile("device.eds");
+od.NodeId = 0x0A;
+od.Bitrate = 500_000;
+od.SetValue("Producer heartbeat time", (OdValue)1000UL);   // by name (top-level)
+od.SetValue(0x1400, 1, (OdValue)0x40AUL);                   // by index/subindex (a member)
+
+DcfWriter.WriteFile(od, "node_0A.dcf");
+```
+
+An unchanged dictionary round-trips byte-for-byte. Values you did not touch are
+written back verbatim, so `$NODEID` expressions and hex notation survive; only values
+set via `SetValue` are reformatted. The node id is hex by default
+(`DcfWriterOptions.NodeIdFormat`). This is the load → modify → write workflow;
+authoring a dictionary from scratch is not supported (writing one without a source
+file throws).
 
 ## Why
 

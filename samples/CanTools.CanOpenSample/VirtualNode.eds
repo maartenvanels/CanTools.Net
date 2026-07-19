@@ -1,0 +1,47 @@
+; A tiny, made-up CANopen device description for the SDO sample. It is NOT a real
+; device: it defines just enough of the object dictionary for the sample to read,
+; write and "program" a few parameters by name. Point the sample at a real vendor
+; EDS to work against its parameter list instead.
+
+[FileInfo]
+FileName=VirtualNode.eds
+EDSVersion=4.0
+Description=CanTools.Net virtual node for the CANopen SDO sample
+
+[DeviceInfo]
+VendorName=CanTools.Net
+ProductName=Virtual Node
+
+[1000]
+ParameterName=Device type
+ObjectType=0x7
+DataType=0x0007
+AccessType=ro
+DefaultValue=0x000F0191
+
+[1001]
+ParameterName=Error register
+ObjectType=0x7
+DataType=0x0005
+AccessType=ro
+
+[1008]
+ParameterName=Manufacturer device name
+ObjectType=0x7
+DataType=0x0009
+AccessType=const
+DefaultValue=CanTools.Net Virtual Node
+
+[2000]
+ParameterName=Sample parameter
+ObjectType=0x7
+DataType=0x0006
+AccessType=rw
+DefaultValue=0
+
+[2001]
+ParameterName=Temperature offset
+ObjectType=0x7
+DataType=0x0003
+AccessType=rw
+DefaultValue=0
