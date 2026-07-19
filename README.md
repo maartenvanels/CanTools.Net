@@ -31,6 +31,11 @@ What works today:
   CiA 301 frames (NMT, heartbeat, EMCY, SYNC, TIME, SDO), and fold a candump of a
   CANopen network into typed events with SDO reassembly — segmented and block
   transfers included. This goes beyond upstream cantools; see `CANOPEN.md`.
+- **Live SDO client**: read and write a remote node's object dictionary over any
+  `ICanChannel` — expedited, segmented and block transfer — verified against SDO
+  test vectors learned from lely-core. The core ships no bus binding, so it stays
+  dependency-free; see `CANOPEN.md` and
+  [samples/CanTools.CanOpenSample](samples/CanTools.CanOpenSample).
 
 ```csharp
 using CanTools.Formats.Dbc;

@@ -39,7 +39,9 @@ public static class SdoValueCodec
             return (value << shift) >> shift;
         }
 
-        return raw;   // OctetString, Domain and anything without a numeric shape
+        // OctetString, Domain, the time types and the composite records
+        // (PDO/SDO parameters, Identity): return the opaque bytes unchanged.
+        return raw;
     }
 
     public static byte[] Encode(OdValue value, CanOpenDataType type)
@@ -91,11 +93,11 @@ public static class SdoClientTypedExtensions
 {
     public static async Task<OdValue> UploadAsync(
         this SdoClient client, ushort index, byte subIndex, CanOpenDataType type,
-        CancellationToken ct = default) =>
-        SdoValueCodec.Decode(await client.UploadAsync(index, subIndex, ct), type);
+        CancellationToken cancellationToken = default) =>
+        SdoValueCodec.Decode(await client.UploadAsync(index, subIndex, cancellationToken), type);
 
     public static Task DownloadAsync(
         this SdoClient client, ushort index, byte subIndex, OdValue value, CanOpenDataType type,
-        CancellationToken ct = default) =>
-        client.DownloadAsync(index, subIndex, SdoValueCodec.Encode(value, type), ct);
+        CancellationToken cancellationToken = default) =>
+        client.DownloadAsync(index, subIndex, SdoValueCodec.Encode(value, type), cancellationToken);
 }

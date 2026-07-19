@@ -8,7 +8,7 @@ namespace CanTools.CanOpen;
 /// COB-IDs (0x600 + node id for requests, 0x580 + node id for responses). One
 /// transfer runs at a time per instance.
 /// </summary>
-public sealed class SdoClient
+public sealed class SdoClient : IDisposable
 {
     private readonly ICanChannel _channel;
     private readonly byte _nodeId;
@@ -27,21 +27,21 @@ public sealed class SdoClient
     private uint ResponseCobId => 0x580u + _nodeId;
 
     /// <summary>Reads the raw bytes of an entry.</summary>
-    public async Task<byte[]> UploadAsync(ushort index, byte subIndex, CancellationToken ct = default)
+    public async Task<byte[]> UploadAsync(ushort index, byte subIndex, CancellationToken cancellationToken = default)
     {
-        await _gate.WaitAsync(ct);
+        await _gate.WaitAsync(cancellationToken);
         try
         {
             if (_options.EnableBlockTransfer)
             {
-                if (await TryBlockUploadAsync(index, subIndex, ct) is { } blockValue)
+                if (await TryBlockUploadAsync(index, subIndex, cancellationToken) is { } blockValue)
                 {
                     return blockValue;
                 }
             }
 
-            await SendAsync(new SdoUploadRequest(index, subIndex).ToBytes(), ct);
-            var response = await ReceiveResponseAsync(index, subIndex, ct);
+            await SendAsync(new SdoUploadRequest(index, subIndex).ToBytes(), cancellationToken);
+            var response = await ReceiveResponseAsync(index, subIndex, cancellationToken);
 
             if (response is not SdoUploadResponse initiate)
             {
@@ -55,7 +55,7 @@ public sealed class SdoClient
                 return initiate.ExpeditedData!;
             }
 
-            return await UploadSegmentedAsync(index, subIndex, ct);
+            return await UploadSegmentedAsync(index, subIndex, cancellationToken);
         }
         finally
         {
@@ -65,16 +65,16 @@ public sealed class SdoClient
 
     /// <summary>Writes the raw bytes of an entry.</summary>
     public async Task DownloadAsync(
-        ushort index, byte subIndex, byte[] data, CancellationToken ct = default)
+        ushort index, byte subIndex, byte[] data, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(data);
 
-        await _gate.WaitAsync(ct);
+        await _gate.WaitAsync(cancellationToken);
         try
         {
             if (_options.EnableBlockTransfer && data.Length > 4)
             {
-                if (await TryBlockDownloadAsync(index, subIndex, data, ct))
+                if (await TryBlockDownloadAsync(index, subIndex, data, cancellationToken))
                 {
                     return;
                 }
@@ -83,8 +83,8 @@ public sealed class SdoClient
             if (data.Length <= 4)
             {
                 await SendAsync(
-                    new SdoDownloadRequest(index, subIndex, data).ToBytes(), ct);
-                var response = await ReceiveResponseAsync(index, subIndex, ct);
+                    new SdoDownloadRequest(index, subIndex, data).ToBytes(), cancellationToken);
+                var response = await ReceiveResponseAsync(index, subIndex, cancellationToken);
 
                 if (response is not SdoDownloadResponse)
                 {
@@ -96,7 +96,7 @@ public sealed class SdoClient
                 return;
             }
 
-            await DownloadSegmentedAsync(index, subIndex, data, ct);
+            await DownloadSegmentedAsync(index, subIndex, data, cancellationToken);
         }
         finally
         {
@@ -104,15 +104,15 @@ public sealed class SdoClient
         }
     }
 
-    private async Task<byte[]> UploadSegmentedAsync(ushort index, byte subIndex, CancellationToken ct)
+    private async Task<byte[]> UploadSegmentedAsync(ushort index, byte subIndex, CancellationToken cancellationToken)
     {
         var data = new List<byte>();
         var toggle = false;
 
         while (true)
         {
-            await SendAsync(new SdoUploadSegmentRequest(toggle).ToBytes(), ct);
-            var response = await ReceiveResponseAsync(index, subIndex, ct);
+            await SendAsync(new SdoUploadSegmentRequest(toggle).ToBytes(), cancellationToken);
+            var response = await ReceiveResponseAsync(index, subIndex, cancellationToken);
 
             if (response is not SdoUploadSegmentResponse segment)
             {
@@ -139,12 +139,12 @@ public sealed class SdoClient
     }
 
     private async Task DownloadSegmentedAsync(
-        ushort index, byte subIndex, byte[] data, CancellationToken ct)
+        ushort index, byte subIndex, byte[] data, CancellationToken cancellationToken)
     {
         await SendAsync(
             new SdoDownloadRequest(index, subIndex) { SizeSpecified = true, Size = (uint)data.Length }.ToBytes(),
-            ct);
-        var initiate = await ReceiveResponseAsync(index, subIndex, ct);
+            cancellationToken);
+        var initiate = await ReceiveResponseAsync(index, subIndex, cancellationToken);
 
         if (initiate is not SdoDownloadResponse)
         {
@@ -162,8 +162,8 @@ public sealed class SdoClient
             var payload = data[offset..(offset + count)];
 
             await SendAsync(
-                new SdoDownloadSegmentRequest(toggle, payload, isLast).ToBytes(), ct);
-            var ack = await ReceiveResponseAsync(index, subIndex, ct);
+                new SdoDownloadSegmentRequest(toggle, payload, isLast).ToBytes(), cancellationToken);
+            var ack = await ReceiveResponseAsync(index, subIndex, cancellationToken);
 
             if (ack is not SdoDownloadSegmentResponse segmentAck || segmentAck.Toggle != toggle)
             {
@@ -179,16 +179,16 @@ public sealed class SdoClient
     // segments than were sent) is treated as ordinary round-boundary progress.
     // Retransmission of segments the server considers dropped is not implemented.
     private async Task<bool> TryBlockDownloadAsync(
-        ushort index, byte subIndex, byte[] data, CancellationToken ct)
+        ushort index, byte subIndex, byte[] data, CancellationToken cancellationToken)
     {
         // initiate: ccs=6, cs=0, s=1 (size), command 0xC2
         var initiate = SdoFrame.BuildBlockInitiate(0xC2, index, subIndex, (uint)data.Length);
-        await SendAsync(initiate, ct);
+        await SendAsync(initiate, cancellationToken);
 
         SdoFrame response;
         try
         {
-            response = await ReceiveResponseAsync(index, subIndex, ct);
+            response = await ReceiveResponseAsync(index, subIndex, cancellationToken);
         }
         catch (SdoAbortException)
         {
@@ -221,12 +221,12 @@ public sealed class SdoClient
             var frame = new byte[8];
             frame[0] = (byte)(sequence | (isLast ? 0x80 : 0));
             data.AsSpan(offset, count).CopyTo(frame.AsSpan(1));
-            await SendAsync(frame, ct);
+            await SendAsync(frame, cancellationToken);
 
             // Ack after the block fills up (blksize) or after the last segment.
             if (isLast || sequence >= blockSize)
             {
-                var ackResponse = await ReceiveResponseAsync(index, subIndex, ct);
+                var ackResponse = await ReceiveResponseAsync(index, subIndex, cancellationToken);
                 if (ackResponse is not SdoBlockFrame { SubCommand: 2 } ack)
                 {
                     throw new SdoProtocolException(
@@ -245,9 +245,9 @@ public sealed class SdoClient
 
         // end: ccs=6, cs=1, padding = 7 - bytes in the last segment
         var padding = 7 - lastSegmentCount;
-        await SendAsync([(byte)(0xC0 | (padding << 2) | 0x01), 0, 0, 0, 0, 0, 0, 0], ct);
+        await SendAsync([(byte)(0xC0 | (padding << 2) | 0x01), 0, 0, 0, 0, 0, 0, 0], cancellationToken);
 
-        var endAck = await ReceiveResponseAsync(index, subIndex, ct);
+        var endAck = await ReceiveResponseAsync(index, subIndex, cancellationToken);
         if (endAck is not SdoBlockFrame)
         {
             throw new SdoProtocolException(
@@ -267,17 +267,17 @@ public sealed class SdoClient
     // v1 scope: a short/partial segment (fewer than blksize received before the
     // server moves on) is treated as ordinary round-boundary progress.
     // Retransmission of segments the server considers dropped is not implemented.
-    private async Task<byte[]?> TryBlockUploadAsync(ushort index, byte subIndex, CancellationToken ct)
+    private async Task<byte[]?> TryBlockUploadAsync(ushort index, byte subIndex, CancellationToken cancellationToken)
     {
         // initiate: ccs=5, cs=0, blksize in byte 4, command 0xA0
         var initiate = SdoFrame.BuildBlockInitiate(0xA0, index, subIndex, 0);
         initiate[4] = (byte)_options.BlockSize;
-        await SendAsync(initiate, ct);
+        await SendAsync(initiate, cancellationToken);
 
         SdoFrame response;
         try
         {
-            response = await ReceiveResponseAsync(index, subIndex, ct);
+            response = await ReceiveResponseAsync(index, subIndex, cancellationToken);
         }
         catch (SdoAbortException)
         {
@@ -291,14 +291,14 @@ public sealed class SdoClient
         }
 
         // start: ccs=5, cs=3, command 0xA3
-        await SendAsync([0xA3, 0, 0, 0, 0, 0, 0, 0], ct);
+        await SendAsync([0xA3, 0, 0, 0, 0, 0, 0, 0], cancellationToken);
 
         var reassembler = new SdoBlockReassembler();
         var blockSize = _options.BlockSize;
 
         while (true)
         {
-            var frame = await ReceiveRawAsync(ct);   // raw: data segments carry no command specifier
+            var frame = await ReceiveRawAsync(cancellationToken);   // raw: data segments carry no command specifier
 
             // A genuine data segment's sequence number is 1-127 (0 is invalid), so
             // its command byte is never exactly 0x80. An abort's command byte is
@@ -325,7 +325,7 @@ public sealed class SdoClient
 
             var finished = reassembler.Acknowledge(sequence);
             // segment ack: ccs=5, cs=2, ackseq in byte 1, blksize in byte 2
-            await SendAsync([0xA2, (byte)sequence, (byte)blockSize, 0, 0, 0, 0, 0], ct);
+            await SendAsync([0xA2, (byte)sequence, (byte)blockSize, 0, 0, 0, 0, 0], cancellationToken);
 
             if (!finished)
             {
@@ -333,12 +333,12 @@ public sealed class SdoClient
             }
 
             // end frame: carrier side, IsEnd
-            var end = await ReceiveResponseAsync(index, subIndex, ct);
+            var end = await ReceiveResponseAsync(index, subIndex, cancellationToken);
             if (end is SdoBlockFrame { IsEnd: true } endFrame)
             {
                 reassembler.TrimTail(endFrame.PaddingCount);
                 // end ack: ccs=5, cs=1, command 0xA1
-                await SendAsync([0xA1, 0, 0, 0, 0, 0, 0, 0], ct);
+                await SendAsync([0xA1, 0, 0, 0, 0, 0, 0, 0], cancellationToken);
                 return reassembler.Data.ToArray();
             }
 
@@ -349,10 +349,10 @@ public sealed class SdoClient
 
     // Receives the next frame from our server without SDO command parsing (block
     // data segments have no command specifier). Applies the same id filter and timeout.
-    private async Task<CanFrame> ReceiveRawAsync(CancellationToken ct)
+    private async Task<CanFrame> ReceiveRawAsync(CancellationToken cancellationToken)
     {
         using var timeout = new CancellationTokenSource(_options.Timeout);
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
 
         while (true)
         {
@@ -361,7 +361,7 @@ public sealed class SdoClient
             {
                 frame = await _channel.ReceiveAsync(linked.Token);
             }
-            catch (OperationCanceledException) when (timeout.IsCancellationRequested && !ct.IsCancellationRequested)
+            catch (OperationCanceledException) when (timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
                 throw new SdoTimeoutException(0, 0);
             }
@@ -373,14 +373,14 @@ public sealed class SdoClient
         }
     }
 
-    private async Task SendAsync(byte[] payload, CancellationToken ct) =>
-        await _channel.SendAsync(new CanFrame(RequestCobId, payload), ct);
+    private async Task SendAsync(byte[] payload, CancellationToken cancellationToken) =>
+        await _channel.SendAsync(new CanFrame(RequestCobId, payload), cancellationToken);
 
     private async Task<SdoFrame> ReceiveResponseAsync(
-        ushort index, byte subIndex, CancellationToken ct)
+        ushort index, byte subIndex, CancellationToken cancellationToken)
     {
         using var timeout = new CancellationTokenSource(_options.Timeout);
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
 
         while (true)
         {
@@ -389,7 +389,7 @@ public sealed class SdoClient
             {
                 frame = await _channel.ReceiveAsync(linked.Token);
             }
-            catch (OperationCanceledException) when (timeout.IsCancellationRequested && !ct.IsCancellationRequested)
+            catch (OperationCanceledException) when (timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
                 throw new SdoTimeoutException(index, subIndex);
             }
@@ -426,4 +426,7 @@ public sealed class SdoClient
             _ => null,
         };
     }
+
+    /// <summary>Releases the transfer gate.</summary>
+    public void Dispose() => _gate.Dispose();
 }
